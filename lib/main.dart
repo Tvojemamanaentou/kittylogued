@@ -1,18 +1,29 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:io';
+
+import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:kittylogued/database/app_database.dart';
+import 'package:kittylogued/services/cover_cache_service.dart';
 import 'package:kittylogued/services/isbn_lookup_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final database = AppDatabase();
-  runApp(KittyloguedApp(database: database));
+  final coverCacheService = CoverCacheService();
+  runApp(
+    KittyloguedApp(database: database, coverCacheService: coverCacheService),
+  );
 }
 
 class KittyloguedApp extends StatelessWidget {
   final AppDatabase database;
+  final CoverCacheService coverCacheService;
 
-  const KittyloguedApp({super.key, required this.database});
+  const KittyloguedApp({
+    super.key,
+    required this.database,
+    required this.coverCacheService,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,20 +37,31 @@ class KittyloguedApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      home: BookCatalogPage(database: database),
+      home: BookCatalogPage(
+        database: database,
+        coverCacheService: coverCacheService,
+      ),
     );
   }
 }
 
 class BookCatalogPage extends StatelessWidget {
   final AppDatabase database;
+  final CoverCacheService coverCacheService;
 
-  const BookCatalogPage({super.key, required this.database});
+  const BookCatalogPage({
+    super.key,
+    required this.database,
+    required this.coverCacheService,
+  });
 
   void _openAddBookDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (dialogContext) => AddBookDialog(database: database),
+      builder: (dialogContext) => AddBookDialog(
+        database: database,
+        coverCacheService: coverCacheService,
+      ),
     );
   }
 
@@ -55,55 +77,6 @@ class BookCatalogPage extends StatelessWidget {
         ),
       );
     }
-  }
-
-  Widget _buildCoverThumbnail(String? coverUrl) {
-    if (coverUrl != null && coverUrl.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: SizedBox(
-          width: 44,
-          height: 64,
-          child: Image.network(
-            coverUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Colors.white10,
-                child: const Icon(
-                  Icons.broken_image,
-                  size: 22,
-                  color: Colors.grey,
-                ),
-              );
-            },
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
-                color: Colors.white10,
-                child: const Center(
-                  child: SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      width: 44,
-      height: 64,
-      decoration: BoxDecoration(
-        color: Colors.white10,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: const Icon(Icons.book, size: 24, color: Colors.grey),
-    );
   }
 
   @override
@@ -164,7 +137,11 @@ class BookCatalogPage extends StatelessWidget {
               return Card(
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 child: ListTile(
-                  leading: _buildCoverThumbnail(book.coverUrl),
+                  leading: BookCoverThumbnail(
+                    isbn: book.isbn,
+                    coverUrl: book.coverUrl,
+                    cacheService: coverCacheService,
+                  ),
                   title: Text(
                     book.title,
                     style: const TextStyle(fontWeight: FontWeight.bold),
@@ -194,10 +171,140 @@ class BookCatalogPage extends StatelessWidget {
   }
 }
 
+class BookCoverThumbnail extends StatefulWidget {
+  final String? isbn;
+  final String? coverUrl;
+  final CoverCacheService cacheService;
+
+  const BookCoverThumbnail({
+    super.key,
+    required this.isbn,
+    required this.coverUrl,
+    required this.cacheService,
+  });
+
+  @override
+  State createState() => _BookCoverThumbnailState();
+}
+
+class _BookCoverThumbnailState extends State {
+  BookCoverThumbnail get _widget => widget as BookCoverThumbnail;
+  File? _cachedFile;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveCover();
+  }
+
+  @override
+  void didUpdateWidget(covariant StatefulWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final old = oldWidget as BookCoverThumbnail;
+    if (old.isbn != _widget.isbn || old.coverUrl != _widget.coverUrl) {
+      _resolveCover();
+    }
+  }
+
+  Future _resolveCover() async {
+    final rawIsbn = _widget.isbn;
+    if (rawIsbn == null || rawIsbn.isEmpty) {
+      if (mounted) setState(() => _cachedFile = null);
+      return;
+    }
+
+    // 1. Check local disk first
+    final file = await _widget.cacheService.getCachedCover(rawIsbn);
+    if (!mounted) return;
+
+    if (file != null) {
+      setState(() => _cachedFile = file);
+      return;
+    }
+
+    // 2. If not on disk but remote URL exists, download and cache in background
+    final remote = _widget.coverUrl;
+    if (remote != null && remote.isNotEmpty) {
+      final downloaded = await _widget.cacheService.downloadAndCacheCover(
+        rawIsbn: rawIsbn,
+        remoteUrl: remote,
+      );
+      if (mounted && downloaded != null) {
+        setState(() => _cachedFile = downloaded);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_cachedFile != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: SizedBox(
+          width: 44,
+          height: 64,
+          child: Image.file(
+            _cachedFile!,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+          ),
+        ),
+      );
+    }
+
+    if (_widget.coverUrl != null && _widget.coverUrl!.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: SizedBox(
+          width: 44,
+          height: 64,
+          child: Image.network(
+            _widget.coverUrl!,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                color: Colors.white10,
+                child: const Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    return _buildPlaceholder();
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      width: 44,
+      height: 64,
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Icon(Icons.book, size: 24, color: Colors.grey),
+    );
+  }
+}
+
 class AddBookDialog extends StatefulWidget {
   final AppDatabase database;
+  final CoverCacheService coverCacheService;
 
-  const AddBookDialog({super.key, required this.database});
+  const AddBookDialog({
+    super.key,
+    required this.database,
+    required this.coverCacheService,
+  });
 
   @override
   State createState() => _AddBookDialogState();
@@ -273,6 +380,14 @@ class _AddBookDialogState extends State {
     final author = _authorController.text.trim();
     final isbn = _isbnController.text.trim();
     final shelf = _shelfController.text.trim();
+
+    // Cache the cover image on local disk before writing to the database
+    if (isbn.isNotEmpty && _coverUrl != null && _coverUrl!.isNotEmpty) {
+      await _dialog.coverCacheService.downloadAndCacheCover(
+        rawIsbn: isbn,
+        remoteUrl: _coverUrl!,
+      );
+    }
 
     await _dialog.database
         .into(_dialog.database.books)

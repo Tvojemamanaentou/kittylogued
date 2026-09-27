@@ -1,5 +1,4 @@
-import 'dart:io';
-
+﻿import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kittylogued/services/cover_cache_service.dart';
 
@@ -20,8 +19,7 @@ void main() {
 
   test('CoverCacheService downloads artwork, writes to disk, and retrieves from cache', () async {
     const rawIsbn = '978-80-277-1368-4';
-    const remoteUrl =
-        'https://www.knihovny.cz/Cover/Show?isbn=9788027713684&size=medium';
+    const remoteUrl = 'https://www.knihovny.cz/Cover/Show?isbn=9788027713684&size=medium';
 
     // 1. Initial state: cache must be empty
     final beforeDownload = await service.getCachedCover(rawIsbn);
@@ -44,17 +42,14 @@ void main() {
     expect(cachedFile!.path, equals(downloadedFile.path));
   });
 
-  test(
-    'CoverCacheService handles empty or invalid inputs gracefully',
-    () async {
-      final emptyResult = await service.downloadAndCacheCover(
-        rawIsbn: '',
-        remoteUrl: '',
-      );
-      expect(emptyResult, isNull);
+  test('CoverCacheService handles empty or invalid inputs gracefully', () async {
+    final emptyResult = await service.downloadAndCacheCover(
+      rawIsbn: '',
+      remoteUrl: '',
+    );
+    expect(emptyResult, isNull);
 
-      final noCachedCover = await service.getCachedCover('');
-      expect(noCachedCover, isNull);
-    },
-  );
+    final noCachedCover = await service.getCachedCover('');
+    expect(noCachedCover, isNull);
+  });
 }
