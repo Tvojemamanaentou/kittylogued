@@ -27,10 +27,6 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     'title',
     aliasedName,
     false,
-    additionalChecks: GeneratedColumn.checkTextLength(
-      minTextLength: 1,
-      maxTextLength: 255,
-    ),
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
@@ -40,10 +36,6 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     'author',
     aliasedName,
     false,
-    additionalChecks: GeneratedColumn.checkTextLength(
-      minTextLength: 1,
-      maxTextLength: 255,
-    ),
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
@@ -51,6 +43,17 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
   @override
   late final GeneratedColumn<String> isbn = GeneratedColumn<String>(
     'isbn',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _coverUrlMeta = const VerificationMeta(
+    'coverUrl',
+  );
+  @override
+  late final GeneratedColumn<String> coverUrl = GeneratedColumn<String>(
+    'cover_url',
     aliasedName,
     true,
     type: DriftSqlType.string,
@@ -97,6 +100,7 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     title,
     author,
     isbn,
+    coverUrl,
     shelfLocation,
     readingStatus,
     createdAt,
@@ -136,6 +140,12 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
       context.handle(
         _isbnMeta,
         isbn.isAcceptableOrUnknown(data['isbn']!, _isbnMeta),
+      );
+    }
+    if (data.containsKey('cover_url')) {
+      context.handle(
+        _coverUrlMeta,
+        coverUrl.isAcceptableOrUnknown(data['cover_url']!, _coverUrlMeta),
       );
     }
     if (data.containsKey('shelf_location')) {
@@ -187,6 +197,10 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         DriftSqlType.string,
         data['${effectivePrefix}isbn'],
       ),
+      coverUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cover_url'],
+      ),
       shelfLocation: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}shelf_location'],
@@ -213,6 +227,7 @@ class Book extends DataClass implements Insertable<Book> {
   final String title;
   final String author;
   final String? isbn;
+  final String? coverUrl;
   final String? shelfLocation;
   final String readingStatus;
   final DateTime createdAt;
@@ -221,6 +236,7 @@ class Book extends DataClass implements Insertable<Book> {
     required this.title,
     required this.author,
     this.isbn,
+    this.coverUrl,
     this.shelfLocation,
     required this.readingStatus,
     required this.createdAt,
@@ -233,6 +249,9 @@ class Book extends DataClass implements Insertable<Book> {
     map['author'] = Variable<String>(author);
     if (!nullToAbsent || isbn != null) {
       map['isbn'] = Variable<String>(isbn);
+    }
+    if (!nullToAbsent || coverUrl != null) {
+      map['cover_url'] = Variable<String>(coverUrl);
     }
     if (!nullToAbsent || shelfLocation != null) {
       map['shelf_location'] = Variable<String>(shelfLocation);
@@ -248,6 +267,9 @@ class Book extends DataClass implements Insertable<Book> {
       title: Value(title),
       author: Value(author),
       isbn: isbn == null && nullToAbsent ? const Value.absent() : Value(isbn),
+      coverUrl: coverUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coverUrl),
       shelfLocation: shelfLocation == null && nullToAbsent
           ? const Value.absent()
           : Value(shelfLocation),
@@ -266,6 +288,7 @@ class Book extends DataClass implements Insertable<Book> {
       title: serializer.fromJson<String>(json['title']),
       author: serializer.fromJson<String>(json['author']),
       isbn: serializer.fromJson<String?>(json['isbn']),
+      coverUrl: serializer.fromJson<String?>(json['coverUrl']),
       shelfLocation: serializer.fromJson<String?>(json['shelfLocation']),
       readingStatus: serializer.fromJson<String>(json['readingStatus']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -279,6 +302,7 @@ class Book extends DataClass implements Insertable<Book> {
       'title': serializer.toJson<String>(title),
       'author': serializer.toJson<String>(author),
       'isbn': serializer.toJson<String?>(isbn),
+      'coverUrl': serializer.toJson<String?>(coverUrl),
       'shelfLocation': serializer.toJson<String?>(shelfLocation),
       'readingStatus': serializer.toJson<String>(readingStatus),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -290,6 +314,7 @@ class Book extends DataClass implements Insertable<Book> {
     String? title,
     String? author,
     Value<String?> isbn = const Value.absent(),
+    Value<String?> coverUrl = const Value.absent(),
     Value<String?> shelfLocation = const Value.absent(),
     String? readingStatus,
     DateTime? createdAt,
@@ -298,6 +323,7 @@ class Book extends DataClass implements Insertable<Book> {
     title: title ?? this.title,
     author: author ?? this.author,
     isbn: isbn.present ? isbn.value : this.isbn,
+    coverUrl: coverUrl.present ? coverUrl.value : this.coverUrl,
     shelfLocation: shelfLocation.present
         ? shelfLocation.value
         : this.shelfLocation,
@@ -310,6 +336,7 @@ class Book extends DataClass implements Insertable<Book> {
       title: data.title.present ? data.title.value : this.title,
       author: data.author.present ? data.author.value : this.author,
       isbn: data.isbn.present ? data.isbn.value : this.isbn,
+      coverUrl: data.coverUrl.present ? data.coverUrl.value : this.coverUrl,
       shelfLocation: data.shelfLocation.present
           ? data.shelfLocation.value
           : this.shelfLocation,
@@ -327,6 +354,7 @@ class Book extends DataClass implements Insertable<Book> {
           ..write('title: $title, ')
           ..write('author: $author, ')
           ..write('isbn: $isbn, ')
+          ..write('coverUrl: $coverUrl, ')
           ..write('shelfLocation: $shelfLocation, ')
           ..write('readingStatus: $readingStatus, ')
           ..write('createdAt: $createdAt')
@@ -340,6 +368,7 @@ class Book extends DataClass implements Insertable<Book> {
     title,
     author,
     isbn,
+    coverUrl,
     shelfLocation,
     readingStatus,
     createdAt,
@@ -352,6 +381,7 @@ class Book extends DataClass implements Insertable<Book> {
           other.title == this.title &&
           other.author == this.author &&
           other.isbn == this.isbn &&
+          other.coverUrl == this.coverUrl &&
           other.shelfLocation == this.shelfLocation &&
           other.readingStatus == this.readingStatus &&
           other.createdAt == this.createdAt);
@@ -362,6 +392,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
   final Value<String> title;
   final Value<String> author;
   final Value<String?> isbn;
+  final Value<String?> coverUrl;
   final Value<String?> shelfLocation;
   final Value<String> readingStatus;
   final Value<DateTime> createdAt;
@@ -370,6 +401,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.title = const Value.absent(),
     this.author = const Value.absent(),
     this.isbn = const Value.absent(),
+    this.coverUrl = const Value.absent(),
     this.shelfLocation = const Value.absent(),
     this.readingStatus = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -379,6 +411,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     required String title,
     required String author,
     this.isbn = const Value.absent(),
+    this.coverUrl = const Value.absent(),
     this.shelfLocation = const Value.absent(),
     this.readingStatus = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -389,6 +422,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Expression<String>? title,
     Expression<String>? author,
     Expression<String>? isbn,
+    Expression<String>? coverUrl,
     Expression<String>? shelfLocation,
     Expression<String>? readingStatus,
     Expression<DateTime>? createdAt,
@@ -398,6 +432,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       if (title != null) 'title': title,
       if (author != null) 'author': author,
       if (isbn != null) 'isbn': isbn,
+      if (coverUrl != null) 'cover_url': coverUrl,
       if (shelfLocation != null) 'shelf_location': shelfLocation,
       if (readingStatus != null) 'reading_status': readingStatus,
       if (createdAt != null) 'created_at': createdAt,
@@ -409,6 +444,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Value<String>? title,
     Value<String>? author,
     Value<String?>? isbn,
+    Value<String?>? coverUrl,
     Value<String?>? shelfLocation,
     Value<String>? readingStatus,
     Value<DateTime>? createdAt,
@@ -418,6 +454,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
       title: title ?? this.title,
       author: author ?? this.author,
       isbn: isbn ?? this.isbn,
+      coverUrl: coverUrl ?? this.coverUrl,
       shelfLocation: shelfLocation ?? this.shelfLocation,
       readingStatus: readingStatus ?? this.readingStatus,
       createdAt: createdAt ?? this.createdAt,
@@ -439,6 +476,9 @@ class BooksCompanion extends UpdateCompanion<Book> {
     if (isbn.present) {
       map['isbn'] = Variable<String>(isbn.value);
     }
+    if (coverUrl.present) {
+      map['cover_url'] = Variable<String>(coverUrl.value);
+    }
     if (shelfLocation.present) {
       map['shelf_location'] = Variable<String>(shelfLocation.value);
     }
@@ -458,6 +498,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
           ..write('title: $title, ')
           ..write('author: $author, ')
           ..write('isbn: $isbn, ')
+          ..write('coverUrl: $coverUrl, ')
           ..write('shelfLocation: $shelfLocation, ')
           ..write('readingStatus: $readingStatus, ')
           ..write('createdAt: $createdAt')
@@ -482,6 +523,7 @@ typedef $$BooksTableCreateCompanionBuilder = BooksCompanion Function({
   required String title,
   required String author,
   Value<String?> isbn,
+  Value<String?> coverUrl,
   Value<String?> shelfLocation,
   Value<String> readingStatus,
   Value<DateTime> createdAt,
@@ -491,6 +533,7 @@ typedef $$BooksTableUpdateCompanionBuilder = BooksCompanion Function({
   Value<String> title,
   Value<String> author,
   Value<String?> isbn,
+  Value<String?> coverUrl,
   Value<String?> shelfLocation,
   Value<String> readingStatus,
   Value<DateTime> createdAt,
@@ -521,6 +564,11 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
 
   ColumnFilters<String> get isbn => $composableBuilder(
     column: $table.isbn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coverUrl => $composableBuilder(
+    column: $table.coverUrl,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -569,6 +617,11 @@ class $$BooksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get coverUrl => $composableBuilder(
+    column: $table.coverUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get shelfLocation => $composableBuilder(
     column: $table.shelfLocation,
     builder: (column) => ColumnOrderings(column),
@@ -605,6 +658,9 @@ class $$BooksTableAnnotationComposer
 
   GeneratedColumn<String> get isbn =>
       $composableBuilder(column: $table.isbn, builder: (column) => column);
+
+  GeneratedColumn<String> get coverUrl =>
+      $composableBuilder(column: $table.coverUrl, builder: (column) => column);
 
   GeneratedColumn<String> get shelfLocation => $composableBuilder(
     column: $table.shelfLocation,
@@ -652,6 +708,7 @@ class $$BooksTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<String> author = const Value.absent(),
                 Value<String?> isbn = const Value.absent(),
+                Value<String?> coverUrl = const Value.absent(),
                 Value<String?> shelfLocation = const Value.absent(),
                 Value<String> readingStatus = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -660,6 +717,7 @@ class $$BooksTableTableManager
                 title: title,
                 author: author,
                 isbn: isbn,
+                coverUrl: coverUrl,
                 shelfLocation: shelfLocation,
                 readingStatus: readingStatus,
                 createdAt: createdAt,
@@ -670,6 +728,7 @@ class $$BooksTableTableManager
                 required String title,
                 required String author,
                 Value<String?> isbn = const Value.absent(),
+                Value<String?> coverUrl = const Value.absent(),
                 Value<String?> shelfLocation = const Value.absent(),
                 Value<String> readingStatus = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -678,6 +737,7 @@ class $$BooksTableTableManager
                 title: title,
                 author: author,
                 isbn: isbn,
+                coverUrl: coverUrl,
                 shelfLocation: shelfLocation,
                 readingStatus: readingStatus,
                 createdAt: createdAt,

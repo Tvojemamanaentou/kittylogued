@@ -57,6 +57,55 @@ class BookCatalogPage extends StatelessWidget {
     }
   }
 
+  Widget _buildCoverThumbnail(String? coverUrl) {
+    if (coverUrl != null && coverUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: SizedBox(
+          width: 44,
+          height: 64,
+          child: Image.network(
+            coverUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Colors.white10,
+                child: const Icon(
+                  Icons.broken_image,
+                  size: 22,
+                  color: Colors.grey,
+                ),
+              );
+            },
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                color: Colors.white10,
+                child: const Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: 44,
+      height: 64,
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Icon(Icons.book, size: 24, color: Colors.grey),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -115,7 +164,7 @@ class BookCatalogPage extends StatelessWidget {
               return Card(
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 child: ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.book)),
+                  leading: _buildCoverThumbnail(book.coverUrl),
                   title: Text(
                     book.title,
                     style: const TextStyle(fontWeight: FontWeight.bold),
@@ -165,6 +214,7 @@ class _AddBookDialogState extends State {
 
   final _isbnLookupService = IsbnLookupService();
   bool _isLookingUp = false;
+  String? _coverUrl;
 
   @override
   void dispose() {
@@ -200,6 +250,7 @@ class _AddBookDialogState extends State {
       setState(() {
         _titleController.text = result.title;
         _authorController.text = result.author;
+        _coverUrl = result.coverUrl;
       });
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Found: ' + result.title)));
@@ -230,6 +281,7 @@ class _AddBookDialogState extends State {
             title: title,
             author: author,
             isbn: drift.Value(isbn.isEmpty ? null : isbn),
+            coverUrl: drift.Value(_coverUrl),
             shelfLocation: drift.Value(shelf.isEmpty ? null : shelf),
           ),
         );
@@ -283,6 +335,43 @@ class _AddBookDialogState extends State {
                     ),
                   ],
                 ),
+                if (_coverUrl != null && _coverUrl!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white10,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: SizedBox(
+                            width: 36,
+                            height: 52,
+                            child: Image.network(
+                              _coverUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.broken_image, size: 20),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Cover artwork found',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.greenAccent,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _titleController,

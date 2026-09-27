@@ -13,16 +13,23 @@ class BookLookupResult {
     required this.author,
     this.coverUrl,
   });
+
+  BookLookupResult copyWith({String? title, String? author, String? coverUrl}) {
+    return BookLookupResult(
+      title: title ?? this.title,
+      author: author ?? this.author,
+      coverUrl: coverUrl ?? this.coverUrl,
+    );
+  }
 }
 
 /// Service responsible for querying book metadata across multiple public providers.
 class IsbnLookupService {
   final http.Client _client;
-  final String? _googleBooksApiKey;
+  final String? googleBooksApiKey;
 
-  IsbnLookupService({http.Client? client, String? googleBooksApiKey})
-    : _client = client ?? http.Client(),
-      _googleBooksApiKey = googleBooksApiKey;
+  IsbnLookupService({http.Client? client, this.googleBooksApiKey})
+    : _client = client ?? http.Client();
 
   /// Queries book metadata matching [rawIsbn].
   ///
@@ -42,6 +49,14 @@ class IsbnLookupService {
     // 1. Try Open Library
     final openLibraryResult = await _lookupOpenLibrary(cleanIsbn);
     if (openLibraryResult != null) {
+      // If Open Library provided metadata but no cover artwork, try the Knihovny.cz cover router
+      if (openLibraryResult.coverUrl == null) {
+        final fallbackCover =
+            'https://www.knihovny.cz/Cover/Show?isbn=' +
+            cleanIsbn +
+            '&size=medium';
+        return openLibraryResult.copyWith(coverUrl: fallbackCover);
+      }
       return openLibraryResult;
     }
 
@@ -52,8 +67,9 @@ class IsbnLookupService {
     }
 
     // 3. Fallback to Google Books only if an API key is available
-    if (_googleBooksApiKey != null && _googleBooksApiKey!.isNotEmpty) {
-      return await _lookupGoogleBooks(cleanIsbn, _googleBooksApiKey!);
+    final apiKey = googleBooksApiKey;
+    if (apiKey != null && apiKey.isNotEmpty) {
+      return await _lookupGoogleBooks(cleanIsbn, apiKey);
     }
 
     return null;
@@ -146,7 +162,6 @@ class IsbnLookupService {
 
       // 1. Extract Title
       String title = firstRecord['title'] as String? ?? 'Unknown Title';
-      // Knihovny.cz titles may include subtitle statement or slash; clean trailing delimiters if present
       if (title.contains(' / ')) {
         title = title.split(' / ').first.trim();
       }
@@ -178,9 +193,11 @@ class IsbnLookupService {
         }
       }
 
-      // 3. Cover URL via Obálky knih
+      // 3. Cover URL routed via Knihovny.cz VuFind proxy
       final coverUrl =
-          'https://cache.obalkyknih.cz/api/cover?isbn=' + cleanIsbn;
+          'https://www.knihovny.cz/Cover/Show?isbn=' +
+          cleanIsbn +
+          '&size=medium';
 
       return BookLookupResult(title: title, author: author, coverUrl: coverUrl);
     } catch (_) {
