@@ -31,7 +31,7 @@ class CoverCacheService {
   Future getCoverFile(String rawIsbn) async {
     final cleanIsbn = sanitizeIsbn(rawIsbn);
     final coversDir = await _getCoversDirectory();
-    return File(p.join(coversDir.path, cleanIsbn + '.jpg'));
+    return File(p.join(coversDir.path, '$cleanIsbn.jpg'));
   }
 
   /// Checks if a cover image is already cached on disk for [rawIsbn].

@@ -52,9 +52,7 @@ class IsbnLookupService {
       // If Open Library provided metadata but no cover artwork, try the Knihovny.cz cover router
       if (openLibraryResult.coverUrl == null) {
         final fallbackCover =
-            'https://www.knihovny.cz/Cover/Show?isbn=' +
-            cleanIsbn +
-            '&size=medium';
+            'https://www.knihovny.cz/Cover/Show?isbn=$cleanIsbn&size=medium';
         return openLibraryResult.copyWith(coverUrl: fallbackCover);
       }
       return openLibraryResult;
@@ -77,7 +75,7 @@ class IsbnLookupService {
 
   Future _lookupOpenLibrary(String cleanIsbn) async {
     final uri = Uri.parse(
-      'https://openlibrary.org/search.json?isbn=' + cleanIsbn,
+      'https://openlibrary.org/search.json?isbn=$cleanIsbn',
     );
 
     try {
@@ -122,7 +120,7 @@ class IsbnLookupService {
       String? coverUrl;
       if (firstDoc.containsKey('cover_i') && firstDoc['cover_i'] != null) {
         final coverId = firstDoc['cover_i'].toString();
-        coverUrl = 'https://covers.openlibrary.org/b/id/' + coverId + '-M.jpg';
+        coverUrl = 'https://covers.openlibrary.org/b/id/$coverId-M.jpg';
       }
 
       return BookLookupResult(title: title, author: author, coverUrl: coverUrl);
@@ -133,7 +131,7 @@ class IsbnLookupService {
 
   Future _lookupKnihovnyCz(String cleanIsbn) async {
     final uri = Uri.parse(
-      'https://www.knihovny.cz/api/v1/search?lookfor=' + cleanIsbn,
+      'https://www.knihovny.cz/api/v1/search?lookfor=$cleanIsbn',
     );
 
     try {
@@ -195,9 +193,7 @@ class IsbnLookupService {
 
       // 3. Cover URL routed via Knihovny.cz VuFind proxy
       final coverUrl =
-          'https://www.knihovny.cz/Cover/Show?isbn=' +
-          cleanIsbn +
-          '&size=medium';
+          'https://www.knihovny.cz/Cover/Show?isbn=$cleanIsbn&size=medium';
 
       return BookLookupResult(title: title, author: author, coverUrl: coverUrl);
     } catch (_) {
@@ -207,10 +203,7 @@ class IsbnLookupService {
 
   Future _lookupGoogleBooks(String cleanIsbn, String apiKey) async {
     final uri = Uri.parse(
-      'https://www.googleapis.com/books/v1/volumes?q=isbn:' +
-          cleanIsbn +
-          '&key=' +
-          apiKey,
+      'https://www.googleapis.com/books/v1/volumes?q=isbn:$cleanIsbn&key=$apiKey',
     );
 
     try {

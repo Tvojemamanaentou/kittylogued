@@ -15,6 +15,40 @@ void main() {
   );
 }
 
+/// Normalizes text for search: lowercases and strips Czech diacritics.
+String _normalizeText(String input) {
+  if (input.isEmpty) return '';
+  var s = input.toLowerCase();
+
+  const diacritics = {
+    'á': 'a',
+    'ä': 'a',
+    'č': 'c',
+    'ď': 'd',
+    'é': 'e',
+    'ě': 'e',
+    'í': 'i',
+    'ĺ': 'l',
+    'ľ': 'l',
+    'ň': 'n',
+    'ó': 'o',
+    'ö': 'o',
+    'ô': 'o',
+    'ŕ': 'r',
+    'ř': 'r',
+    'š': 's',
+    'ť': 't',
+    'ú': 'u',
+    'ů': 'u',
+    'ü': 'u',
+    'ý': 'y',
+    'ž': 'z',
+  };
+
+  diacritics.forEach((k, v) => s = s.replaceAll(k, v));
+  return s;
+}
+
 class KittyloguedApp extends StatelessWidget {
   final AppDatabase database;
   final CoverCacheService coverCacheService;
@@ -45,7 +79,7 @@ class KittyloguedApp extends StatelessWidget {
   }
 }
 
-class BookCatalogPage extends StatelessWidget {
+class BookCatalogPage extends StatefulWidget {
   final AppDatabase database;
   final CoverCacheService coverCacheService;
 
@@ -55,12 +89,31 @@ class BookCatalogPage extends StatelessWidget {
     required this.coverCacheService,
   });
 
+  @override
+  State<BookCatalogPage> createState() => _BookCatalogPageState();
+}
+
+class _BookCatalogPageState extends State<BookCatalogPage> {
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+
+  String _searchQuery = '';
+  String _selectedStatus = 'all';
+  String _selectedShelf = 'all';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
   void _openAddBookDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (dialogContext) => AddBookDialog(
-        database: database,
-        coverCacheService: coverCacheService,
+        database: widget.database,
+        coverCacheService: widget.coverCacheService,
       ),
     );
   }
@@ -69,25 +122,36 @@ class BookCatalogPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (dialogContext) => EditBookDialog(
-        database: database,
-        coverCacheService: coverCacheService,
+        database: widget.database,
+        coverCacheService: widget.coverCacheService,
         book: book,
       ),
     );
   }
 
-  Future _deleteBook(BuildContext context, Book book) async {
-    await (database.delete(
-      database.books,
+  Future<void> _deleteBook(BuildContext context, Book book) async {
+    await (widget.database.delete(
+      widget.database.books,
     )..where((tbl) => tbl.id.equals(book.id))).go();
+
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Deleted "' + book.title + '"'),
+          content: Text('Deleted "${book.title}"'),
           duration: const Duration(seconds: 2),
         ),
       );
     }
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _searchController.clear();
+      _searchQuery = '';
+      _selectedStatus = 'all';
+      _selectedShelf = 'all';
+    });
+    _searchFocusNode.requestFocus();
   }
 
   Widget _buildStatusChip(String status) {
@@ -130,111 +194,335 @@ class BookCatalogPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasActiveFilters =
+        _searchQuery.isNotEmpty ||
+        _selectedStatus != 'all' ||
+        _selectedShelf != 'all';
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Kittylogued Library'),
         centerTitle: true,
+        actions: [
+          if (hasActiveFilters)
+            IconButton(
+              icon: const Icon(Icons.filter_alt_off),
+              tooltip: 'Reset filters',
+              onPressed: _clearFilters,
+            ),
+        ],
       ),
-      body: StreamBuilder(
-        stream: database.select(database.books).watch(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Error loading catalog: ' + snapshot.error.toString(),
-              ),
-            );
-          }
-
-          final books = snapshot.data ?? [];
-
-          if (books.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.menu_book, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'No books in your catalog yet.',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Click the + button to add your first book.',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            itemCount: books.length,
-            itemBuilder: (context, index) {
-              final book = books[index];
-              final shelf =
-                  (book.shelfLocation != null && book.shelfLocation!.isNotEmpty)
-                  ? book.shelfLocation!
-                  : 'Unassigned';
-
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 6),
-                child: ListTile(
-                  onTap: () => _openEditBookDialog(context, book),
-                  leading: BookCoverThumbnail(
-                    isbn: book.isbn,
-                    coverUrl: book.coverUrl,
-                    cacheService: coverCacheService,
-                  ),
-                  title: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          book.title,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildStatusChip(book.readingStatus),
-                    ],
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(book.author + '\nShelf: ' + shelf),
-                  ),
-                  isThreeLine: true,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.edit_outlined,
-                          color: Colors.white70,
-                        ),
-                        tooltip: 'Edit book',
-                        onPressed: () => _openEditBookDialog(context, book),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.redAccent,
-                        ),
-                        tooltip: 'Delete book',
-                        onPressed: () => _deleteBook(context, book),
-                      ),
-                    ],
-                  ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              onChanged: (value) => setState(() => _searchQuery = value.trim()),
+              decoration: InputDecoration(
+                hintText: 'Search title, author, or ISBN...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                          _searchFocusNode.requestFocus();
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              );
-            },
-          );
-        },
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 0,
+                ),
+              ),
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            child: Row(
+              children: [
+                FilterChip(
+                  label: const Text('All Status'),
+                  selected: _selectedStatus == 'all',
+                  onSelected: (_) => setState(() => _selectedStatus = 'all'),
+                ),
+                const SizedBox(width: 8),
+                FilterChip(
+                  label: const Text('To Read'),
+                  selected: _selectedStatus == 'unread',
+                  onSelected: (_) => setState(() => _selectedStatus = 'unread'),
+                ),
+                const SizedBox(width: 8),
+                FilterChip(
+                  label: const Text('Reading'),
+                  selected: _selectedStatus == 'reading',
+                  onSelected: (_) =>
+                      setState(() => _selectedStatus = 'reading'),
+                ),
+                const SizedBox(width: 8),
+                FilterChip(
+                  label: const Text('Finished'),
+                  selected: _selectedStatus == 'read',
+                  onSelected: (_) => setState(() => _selectedStatus = 'read'),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 12),
+          Expanded(
+            child: StreamBuilder<List<Book>>(
+              stream: widget.database.select(widget.database.books).watch(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData &&
+                    snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('Error loading catalog: ${snapshot.error}'),
+                  );
+                }
+
+                final allBooks = snapshot.data ?? const <Book>[];
+
+                if (allBooks.isEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.menu_book, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          'No books in your catalog yet.',
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Click the + button to add your first book.',
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final Set<String> distinctShelves = <String>{};
+                for (final book in allBooks) {
+                  if (book.shelfLocation != null &&
+                      book.shelfLocation!.trim().isNotEmpty) {
+                    distinctShelves.add(book.shelfLocation!.trim());
+                  }
+                }
+                final sortedShelves = distinctShelves.toList()..sort();
+
+                final queryTokens = _normalizeText(_searchQuery)
+                    .split(RegExp(r'\s+'))
+                    .where((token) => token.isNotEmpty)
+                    .toList();
+
+                final filteredBooks = allBooks.where((book) {
+                  if (queryTokens.isNotEmpty) {
+                    final targetCombined = _normalizeText(
+                      '${book.title} ${book.author} ${book.isbn ?? ""}',
+                    );
+                    final targetSpaced = targetCombined.replaceAll(
+                      RegExp(r'[^a-z0-9]'),
+                      ' ',
+                    );
+                    final targetCollapsed = targetCombined.replaceAll(
+                      RegExp(r'[^a-z0-9]'),
+                      '',
+                    );
+
+                    final matchesAll = queryTokens.every((token) {
+                      final cleanToken = token.replaceAll(
+                        RegExp(r'[^a-z0-9]'),
+                        '',
+                      );
+                      if (cleanToken.isEmpty) return true;
+
+                      return targetSpaced.contains(token) ||
+                          targetCollapsed.contains(cleanToken);
+                    });
+
+                    if (!matchesAll) return false;
+                  }
+
+                  if (_selectedStatus != 'all' &&
+                      book.readingStatus != _selectedStatus) {
+                    return false;
+                  }
+
+                  if (_selectedShelf != 'all') {
+                    if (book.shelfLocation == null ||
+                        book.shelfLocation!.trim() != _selectedShelf) {
+                      return false;
+                    }
+                  }
+
+                  return true;
+                }).toList();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (sortedShelves.isNotEmpty) ...[
+                      Center(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 2,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.shelves,
+                                size: 18,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(width: 8),
+                              FilterChip(
+                                label: const Text('All Shelves'),
+                                selected: _selectedShelf == 'all',
+                                onSelected: (_) =>
+                                    setState(() => _selectedShelf = 'all'),
+                              ),
+                              for (final shelf in sortedShelves) ...[
+                                const SizedBox(width: 8),
+                                FilterChip(
+                                  label: Text(shelf),
+                                  selected: _selectedShelf == shelf,
+                                  onSelected: (_) =>
+                                      setState(() => _selectedShelf = shelf),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 8),
+                    ],
+                    Expanded(
+                      child: filteredBooks.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.search_off,
+                                    size: 48,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'No matching books found.',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextButton.icon(
+                                    onPressed: _clearFilters,
+                                    icon: const Icon(Icons.restart_alt),
+                                    label: const Text('Reset Filters'),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 4,
+                                horizontal: 12,
+                              ),
+                              itemCount: filteredBooks.length,
+                              itemBuilder: (context, index) {
+                                final book = filteredBooks[index];
+                                final shelf =
+                                    (book.shelfLocation != null &&
+                                        book.shelfLocation!.isNotEmpty)
+                                    ? book.shelfLocation!
+                                    : 'Unassigned';
+
+                                return Card(
+                                  margin: const EdgeInsets.symmetric(
+                                    vertical: 5,
+                                  ),
+                                  child: ListTile(
+                                    onTap: () =>
+                                        _openEditBookDialog(context, book),
+                                    leading: BookCoverThumbnail(
+                                      isbn: book.isbn,
+                                      coverUrl: book.coverUrl,
+                                      cacheService: widget.coverCacheService,
+                                    ),
+                                    title: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            book.title,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _buildStatusChip(book.readingStatus),
+                                      ],
+                                    ),
+                                    subtitle: Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        '${book.author}\nShelf: $shelf',
+                                      ),
+                                    ),
+                                    isThreeLine: true,
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.edit_outlined,
+                                            color: Colors.white70,
+                                          ),
+                                          tooltip: 'Edit book',
+                                          onPressed: () => _openEditBookDialog(
+                                            context,
+                                            book,
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                            color: Colors.redAccent,
+                                          ),
+                                          tooltip: 'Delete book',
+                                          onPressed: () =>
+                                              _deleteBook(context, book),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openAddBookDialog(context),
@@ -258,11 +546,10 @@ class BookCoverThumbnail extends StatefulWidget {
   });
 
   @override
-  State createState() => _BookCoverThumbnailState();
+  State<BookCoverThumbnail> createState() => _BookCoverThumbnailState();
 }
 
-class _BookCoverThumbnailState extends State {
-  BookCoverThumbnail get _widget => widget as BookCoverThumbnail;
+class _BookCoverThumbnailState extends State<BookCoverThumbnail> {
   File? _cachedFile;
 
   @override
@@ -272,22 +559,24 @@ class _BookCoverThumbnailState extends State {
   }
 
   @override
-  void didUpdateWidget(covariant StatefulWidget oldWidget) {
+  void didUpdateWidget(covariant BookCoverThumbnail oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final old = oldWidget as BookCoverThumbnail;
-    if (old.isbn != _widget.isbn || old.coverUrl != _widget.coverUrl) {
+    if (oldWidget.isbn != widget.isbn ||
+        oldWidget.coverUrl != widget.coverUrl) {
       _resolveCover();
     }
   }
 
-  Future _resolveCover() async {
-    final rawIsbn = _widget.isbn;
+  Future<void> _resolveCover() async {
+    final rawIsbn = widget.isbn;
     if (rawIsbn == null || rawIsbn.isEmpty) {
-      if (mounted) setState(() => _cachedFile = null);
+      if (mounted) {
+        setState(() => _cachedFile = null);
+      }
       return;
     }
 
-    final file = await _widget.cacheService.getCachedCover(rawIsbn);
+    final file = await widget.cacheService.getCachedCover(rawIsbn);
     if (!mounted) return;
 
     if (file != null) {
@@ -295,9 +584,9 @@ class _BookCoverThumbnailState extends State {
       return;
     }
 
-    final remote = _widget.coverUrl;
+    final remote = widget.coverUrl;
     if (remote != null && remote.isNotEmpty) {
-      final downloaded = await _widget.cacheService.downloadAndCacheCover(
+      final downloaded = await widget.cacheService.downloadAndCacheCover(
         rawIsbn: rawIsbn,
         remoteUrl: remote,
       );
@@ -324,14 +613,14 @@ class _BookCoverThumbnailState extends State {
       );
     }
 
-    if (_widget.coverUrl != null && _widget.coverUrl!.isNotEmpty) {
+    if (widget.coverUrl != null && widget.coverUrl!.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(4),
         child: SizedBox(
           width: 44,
           height: 64,
           child: Image.network(
-            _widget.coverUrl!,
+            widget.coverUrl!,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
             loadingBuilder: (context, child, loadingProgress) {
@@ -379,13 +668,11 @@ class AddBookDialog extends StatefulWidget {
   });
 
   @override
-  State createState() => _AddBookDialogState();
+  State<AddBookDialog> createState() => _AddBookDialogState();
 }
 
-class _AddBookDialogState extends State {
-  AddBookDialog get _dialog => widget as AddBookDialog;
-
-  final _formKey = GlobalKey();
+class _AddBookDialogState extends State<AddBookDialog> {
+  final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _authorController = TextEditingController();
   final _isbnController = TextEditingController();
@@ -405,7 +692,7 @@ class _AddBookDialogState extends State {
     super.dispose();
   }
 
-  Future _lookupIsbn() async {
+  Future<void> _lookupIsbn() async {
     final rawIsbn = _isbnController.text.trim();
     if (rawIsbn.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -433,20 +720,18 @@ class _AddBookDialogState extends State {
         _coverUrl = result.coverUrl;
       });
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Found: ' + result.title)));
+          .showSnackBar(SnackBar(content: Text('Found: ${result.title}')));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No book found for ISBN "' + rawIsbn + '".')),
+        SnackBar(content: Text('No book found for ISBN "$rawIsbn".')),
       );
     }
   }
 
-  Future _saveBook() async {
+  Future<void> _saveBook() async {
     final formState = _formKey.currentState;
-    if (formState is FormState) {
-      if (!formState.validate()) {
-        return;
-      }
+    if (formState != null && !formState.validate()) {
+      return;
     }
 
     final title = _titleController.text.trim();
@@ -455,14 +740,14 @@ class _AddBookDialogState extends State {
     final shelf = _shelfController.text.trim();
 
     if (isbn.isNotEmpty && _coverUrl != null && _coverUrl!.isNotEmpty) {
-      await _dialog.coverCacheService.downloadAndCacheCover(
+      await widget.coverCacheService.downloadAndCacheCover(
         rawIsbn: isbn,
         remoteUrl: _coverUrl!,
       );
     }
 
-    await _dialog.database
-        .into(_dialog.database.books)
+    await widget.database
+        .into(widget.database.books)
         .insert(
           BooksCompanion.insert(
             title: title,
@@ -646,13 +931,11 @@ class EditBookDialog extends StatefulWidget {
   });
 
   @override
-  State createState() => _EditBookDialogState();
+  State<EditBookDialog> createState() => _EditBookDialogState();
 }
 
-class _EditBookDialogState extends State {
-  EditBookDialog get _dialog => widget as EditBookDialog;
-
-  final _formKey = GlobalKey();
+class _EditBookDialogState extends State<EditBookDialog> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _titleController;
   late final TextEditingController _authorController;
   late final TextEditingController _isbnController;
@@ -666,7 +949,7 @@ class _EditBookDialogState extends State {
   @override
   void initState() {
     super.initState();
-    final book = _dialog.book;
+    final book = widget.book;
     _titleController = TextEditingController(text: book.title);
     _authorController = TextEditingController(text: book.author);
     _isbnController = TextEditingController(text: book.isbn ?? '');
@@ -684,7 +967,7 @@ class _EditBookDialogState extends State {
     super.dispose();
   }
 
-  Future _lookupIsbn() async {
+  Future<void> _lookupIsbn() async {
     final rawIsbn = _isbnController.text.trim();
     if (rawIsbn.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -712,21 +995,19 @@ class _EditBookDialogState extends State {
         _coverUrl = result.coverUrl;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Updated metadata for: ' + result.title)),
+        SnackBar(content: Text('Updated metadata for: ${result.title}')),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No book found for ISBN "' + rawIsbn + '".')),
+        SnackBar(content: Text('No book found for ISBN "$rawIsbn".')),
       );
     }
   }
 
-  Future _updateBook() async {
+  Future<void> _updateBook() async {
     final formState = _formKey.currentState;
-    if (formState is FormState) {
-      if (!formState.validate()) {
-        return;
-      }
+    if (formState != null && !formState.validate()) {
+      return;
     }
 
     final title = _titleController.text.trim();
@@ -734,17 +1015,16 @@ class _EditBookDialogState extends State {
     final isbn = _isbnController.text.trim();
     final shelf = _shelfController.text.trim();
 
-    // Cache updated cover artwork if changed/available
     if (isbn.isNotEmpty && _coverUrl != null && _coverUrl!.isNotEmpty) {
-      await _dialog.coverCacheService.downloadAndCacheCover(
+      await widget.coverCacheService.downloadAndCacheCover(
         rawIsbn: isbn,
         remoteUrl: _coverUrl!,
       );
     }
 
-    await (_dialog.database.update(
-      _dialog.database.books,
-    )..where((tbl) => tbl.id.equals(_dialog.book.id))).write(
+    await (widget.database.update(
+      widget.database.books,
+    )..where((tbl) => tbl.id.equals(widget.book.id))).write(
       BooksCompanion(
         title: drift.Value(title),
         author: drift.Value(author),
@@ -757,7 +1037,7 @@ class _EditBookDialogState extends State {
 
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Updated "' + title + '"')));
+          .showSnackBar(SnackBar(content: Text('Updated "$title"')));
       Navigator.of(context).pop();
     }
   }
