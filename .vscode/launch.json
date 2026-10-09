@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "kittylogued",
+            "request": "launch",
+            "type": "dart",
+            "toolArgs": [
+                "--no-enable-impeller"
+            ]
+        }
+    ]
+}
