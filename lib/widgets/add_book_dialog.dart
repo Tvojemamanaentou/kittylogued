@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:kittylogued/database/app_database.dart';
+import 'package:kittylogued/models/book_draft.dart';
 import 'package:kittylogued/services/cover_cache_service.dart';
 import 'package:kittylogued/services/isbn_lookup_service.dart';
 import 'package:kittylogued/utils/book_identifier.dart';
+import 'package:kittylogued/utils/reading_progress.dart';
 import 'package:kittylogued/widgets/book_search_dialog.dart';
+import 'package:kittylogued/widgets/reading_progress_field.dart';
+import 'package:kittylogued/widgets/tag_editor.dart';
 
 class AddBookDialog extends StatefulWidget {
   final AppDatabase database;
@@ -45,6 +49,8 @@ class _AddBookDialogState extends State<AddBookDialog>
   bool _isLookingUp = false;
   String? _coverUrl;
   String _readingStatus = 'unread';
+  int _currentPage = 0;
+  List<TagDraft> _tags = [];
   String _bindingType = 'paperback';
 
   @override
@@ -168,8 +174,9 @@ class _AddBookDialogState extends State<AddBookDialog>
     }
 
     final internalId = BookIdentifier.generate(title: title);
+    final dates = ReadingProgress.datesFor(status: _readingStatus);
 
-    await widget.database
+    final newBookId = await widget.database
         .into(widget.database.books)
         .insert(
           BooksCompanion.insert(
@@ -188,9 +195,16 @@ class _AddBookDialogState extends State<AddBookDialog>
             ),
             privateNotes: drift.Value(notes.isEmpty ? null : notes),
             readingStatus: drift.Value(_readingStatus),
+            currentPage: drift.Value(
+              ReadingProgress.clampPage(_currentPage, pages),
+            ),
+            startedAt: drift.Value(dates.startedAt),
+            finishedAt: drift.Value(dates.finishedAt),
             coverUrl: drift.Value(_coverUrl),
           ),
         );
+
+    await widget.database.setBookTags(newBookId, _tags);
 
     if (mounted) Navigator.of(context).pop();
   }
@@ -309,15 +323,23 @@ class _AddBookDialogState extends State<AddBookDialog>
                       ],
                     ),
                     const SizedBox(height: 12),
-                    SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(value: 'unread', label: Text('To Read')),
-                        ButtonSegment(value: 'reading', label: Text('Reading')),
-                        ButtonSegment(value: 'read', label: Text('Finished')),
-                      ],
-                      selected: {_readingStatus},
-                      onSelectionChanged: (s) =>
-                          setState(() => _readingStatus = s.first),
+                    ListenableBuilder(
+                      listenable: _pagesController,
+                      builder: (context, _) => ReadingProgressField(
+                        status: _readingStatus,
+                        currentPage: _currentPage,
+                        totalPages: int.tryParse(_pagesController.text.trim()),
+                        onChanged: (status, page) => setState(() {
+                          _readingStatus = status;
+                          _currentPage = page;
+                        }),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TagEditor(
+                      database: widget.database,
+                      tags: _tags,
+                      onChanged: (tags) => setState(() => _tags = tags),
                     ),
                   ],
                 ),

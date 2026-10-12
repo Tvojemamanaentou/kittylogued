@@ -96,6 +96,12 @@ String? extractPublisher(dynamic val) {
 }
 
 /// Immutable data container holding rich metadata fetched from an online query.
+/// Where finished lookups are remembered between runs.
+abstract class LookupCache {
+  Future<BookLookupResult?> get(String isbn);
+  Future<void> put(String isbn, BookLookupResult result);
+}
+
 class BookLookupResult {
   final String title;
   final String author;
@@ -151,14 +157,148 @@ class BookLookupResult {
 
 /// Service querying book metadata across Knihovny.cz, Google Books, and Open Library.
 class IsbnLookupService {
+  /// Optional store for lookup results (set once at startup).
+  static LookupCache? cache;
+
   final http.Client _client;
   final String? googleBooksApiKey;
 
   IsbnLookupService({http.Client? client, this.googleBooksApiKey})
     : _client = client ?? http.Client();
 
+  /// Looks a book up by ISBN. If the catalogue that answered had no page
+  /// count, other sources are asked for it.
+  Future<BookLookupResult?> lookupByIsbn(
+    String rawIsbn, {
+    bool useCache = true,
+  }) async {
+    final key = rawIsbn.replaceAll(RegExp(r'[^0-9Xx]'), '').toUpperCase();
+    if (useCache && key.isNotEmpty) {
+      try {
+        final hit = await cache?.get(key);
+        if (hit != null) return hit;
+      } catch (_) {}
+    }
+    final result = await _lookupByIsbnBasic(rawIsbn);
+    if (result == null) return null;
+    final enriched = await withPageCount(result);
+    if (key.isNotEmpty) {
+      try {
+        await cache?.put(key, enriched);
+      } catch (_) {}
+    }
+    return enriched;
+  }
+
+  /// Returns [result] with a page count filled in when it was missing.
+  Future<BookLookupResult> withPageCount(BookLookupResult result) async {
+    if (result.pageCount != null && result.pageCount! > 0) return result;
+    final isbn = result.isbn;
+    if (isbn == null || isbn.isEmpty) return result;
+    final pages = await lookupPageCount(isbn);
+    return pages == null ? result : result.copyWith(pageCount: pages);
+  }
+
+  /// Tries several authorities in turn and returns the first page count found:
+  /// 1. knihovny.cz (central portal of Czech libraries; includes the union
+  ///    catalogue records), looking at every record for the ISBN
+  /// 2. Open Library
+  /// 3. Google Books
+  /// To add another source, write a `Future<int?> _pageCountFromX(String isbn)`
+  /// method and add it to the list below.
+  Future<int?> lookupPageCount(String rawIsbn) async {
+    final isbn = rawIsbn.replaceAll(RegExp(r'[^0-9Xx]'), '').toUpperCase();
+    if (isbn.length != 10 && isbn.length != 13) return null;
+
+    final sources = <Future<int?> Function(String)>[
+      _pageCountFromKnihovny,
+      _pageCountFromOpenLibrary,
+      _pageCountFromGoogleBooks,
+    ];
+    for (final source in sources) {
+      try {
+        final pages = await source(isbn);
+        if (pages != null && pages >= 8 && pages <= 10000) return pages;
+      } catch (_) {
+        // Try the next source.
+      }
+    }
+    return null;
+  }
+
+  Future<dynamic> _getJson(Uri uri) async {
+    final response = await _client
+        .get(
+          uri,
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'KittyloguedApp/1.0',
+          },
+        )
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) return null;
+    return jsonDecode(response.body);
+  }
+
+  Future<int?> _pageCountFromKnihovny(String isbn) async {
+    final data = await _getJson(
+      Uri.parse(
+        'https://www.knihovny.cz/api/v1/search?lookfor=$isbn&type=AllFields&limit=10',
+      ),
+    );
+    if (data is! Map) return null;
+    final records = data['records'];
+    if (records is! List) return null;
+
+    final pageRegex = RegExp(
+      r'(\d{1,5})\s*(?:s\.|stran|str\.|pages|p\.)',
+      caseSensitive: false,
+    );
+    for (final record in records) {
+      if (record is! Map) continue;
+      final descs = record['physicalDescriptions'];
+      if (descs is! List) continue;
+      for (final d in descs) {
+        final match = pageRegex.firstMatch(d.toString());
+        final pages = match == null ? null : int.tryParse(match.group(1)!);
+        if (pages != null && pages >= 8) return pages;
+      }
+    }
+    return null;
+  }
+
+  Future<int?> _pageCountFromOpenLibrary(String isbn) async {
+    final data = await _getJson(
+      Uri.parse(
+        'https://openlibrary.org/api/books?bibkeys=ISBN:$isbn&format=json&jscmd=data',
+      ),
+    );
+    if (data is! Map) return null;
+    final entry = data['ISBN:$isbn'];
+    if (entry is! Map) return null;
+    final pages = entry['number_of_pages'];
+    return pages is int ? pages : int.tryParse('$pages');
+  }
+
+  Future<int?> _pageCountFromGoogleBooks(String isbn) async {
+    final data = await _getJson(
+      Uri.parse('https://www.googleapis.com/books/v1/volumes?q=isbn:$isbn'),
+    );
+    if (data is! Map) return null;
+    final items = data['items'];
+    if (items is! List) return null;
+    for (final item in items) {
+      if (item is! Map) continue;
+      final info = item['volumeInfo'];
+      if (info is! Map) continue;
+      final pages = info['pageCount'];
+      if (pages is int && pages > 0) return pages;
+    }
+    return null;
+  }
+
   /// Queries metadata by ISBN with automated provider fallback.
-  Future<BookLookupResult?> lookupByIsbn(String rawIsbn) async {
+  Future<BookLookupResult?> _lookupByIsbnBasic(String rawIsbn) async {
     final cleanIsbn = rawIsbn.replaceAll(RegExp(r'[^0-9Xx]'), '').toUpperCase();
     if (cleanIsbn.length != 10 && cleanIsbn.length != 13) return null;
     if (RegExp(r'^0+$').hasMatch(cleanIsbn)) return null;

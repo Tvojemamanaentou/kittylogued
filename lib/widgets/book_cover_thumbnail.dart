@@ -94,7 +94,7 @@ class _BookCoverThumbnailState extends State<BookCoverThumbnail> {
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
               return Container(
-                color: Colors.white10,
+                color: Colors.grey.withValues(alpha: 0.2),
                 child: const Center(
                   child: SizedBox(
                     width: 16,
@@ -117,7 +117,7 @@ class _BookCoverThumbnailState extends State<BookCoverThumbnail> {
       width: 44,
       height: 64,
       decoration: BoxDecoration(
-        color: Colors.white10,
+        color: Colors.grey.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: const Icon(Icons.book, size: 24, color: Colors.grey),

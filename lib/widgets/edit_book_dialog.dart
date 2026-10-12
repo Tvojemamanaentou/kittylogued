@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:kittylogued/database/app_database.dart';
+import 'package:kittylogued/models/book_draft.dart';
 import 'package:kittylogued/services/cover_cache_service.dart';
 import 'package:kittylogued/services/isbn_lookup_service.dart';
+import 'package:kittylogued/utils/reading_progress.dart';
 import 'package:kittylogued/widgets/barcode_scanner_dialog.dart';
 import 'package:kittylogued/widgets/book_search_dialog.dart';
+import 'package:kittylogued/widgets/reading_progress_field.dart';
+import 'package:kittylogued/widgets/tag_editor.dart';
 
 class EditBookDialog extends StatefulWidget {
   final AppDatabase database;
@@ -43,6 +47,8 @@ class _EditBookDialogState extends State<EditBookDialog>
   bool _isLookingUp = false;
   String? _coverUrl;
   late String _readingStatus;
+  late int _currentPage;
+  List<TagDraft> _tags = [];
   late String _bindingType;
 
   @override
@@ -68,6 +74,10 @@ class _EditBookDialogState extends State<EditBookDialog>
     _notesController = TextEditingController(text: book.privateNotes ?? '');
     _coverUrl = book.coverUrl;
     _readingStatus = book.readingStatus;
+    _currentPage = book.currentPage;
+    widget.database.tagsForBook(book.id).then((tags) {
+      if (mounted) setState(() => _tags = tags);
+    });
     _bindingType = book.bindingType ?? 'paperback';
   }
 
@@ -176,6 +186,12 @@ class _EditBookDialogState extends State<EditBookDialog>
       );
     }
 
+    final dates = ReadingProgress.datesFor(
+      status: _readingStatus,
+      startedAt: widget.book.startedAt,
+      finishedAt: widget.book.finishedAt,
+    );
+
     await (widget.database.update(
       widget.database.books,
     )..where((tbl) => tbl.id.equals(widget.book.id))).write(
@@ -195,8 +211,15 @@ class _EditBookDialogState extends State<EditBookDialog>
         ),
         privateNotes: drift.Value(notes.isEmpty ? null : notes),
         readingStatus: drift.Value(_readingStatus),
+        currentPage: drift.Value(
+          ReadingProgress.clampPage(_currentPage, pages),
+        ),
+        startedAt: drift.Value(dates.startedAt),
+        finishedAt: drift.Value(dates.finishedAt),
       ),
     );
+
+    await widget.database.setBookTags(widget.book.id, _tags);
 
     if (mounted) {
       ScaffoldMessenger.of(context)
@@ -333,15 +356,23 @@ class _EditBookDialogState extends State<EditBookDialog>
                       ],
                     ),
                     const SizedBox(height: 12),
-                    SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(value: 'unread', label: Text('To Read')),
-                        ButtonSegment(value: 'reading', label: Text('Reading')),
-                        ButtonSegment(value: 'read', label: Text('Finished')),
-                      ],
-                      selected: {_readingStatus},
-                      onSelectionChanged: (s) =>
-                          setState(() => _readingStatus = s.first),
+                    ListenableBuilder(
+                      listenable: _pagesController,
+                      builder: (context, _) => ReadingProgressField(
+                        status: _readingStatus,
+                        currentPage: _currentPage,
+                        totalPages: int.tryParse(_pagesController.text.trim()),
+                        onChanged: (status, page) => setState(() {
+                          _readingStatus = status;
+                          _currentPage = page;
+                        }),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TagEditor(
+                      database: widget.database,
+                      tags: _tags,
+                      onChanged: (tags) => setState(() => _tags = tags),
                     ),
                   ],
                 ),

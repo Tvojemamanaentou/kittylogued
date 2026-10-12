@@ -31,6 +31,8 @@ class AddBookBubbles extends StatelessWidget {
   final VoidCallback onScan;
   final VoidCallback onIsbn;
   final VoidCallback onSearch;
+  final bool batchMode;
+  final ValueChanged<bool> onBatchChanged;
 
   const AddBookBubbles({
     super.key,
@@ -38,6 +40,8 @@ class AddBookBubbles extends StatelessWidget {
     required this.onScan,
     required this.onIsbn,
     required this.onSearch,
+    required this.batchMode,
+    required this.onBatchChanged,
   });
 
   Widget _bubble(
@@ -90,6 +94,46 @@ class AddBookBubbles extends StatelessWidget {
       ignoring: !isOpen,
       child: Stack(
         children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 216,
+            child: Center(
+              child: AnimatedScale(
+                scale: isOpen ? 1 : 0,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutBack,
+                child: Material(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  elevation: 4,
+                  shape: const StadiumBorder(),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 14, right: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.library_add_check_outlined,
+                          size: 18,
+                          color: onColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Batch',
+                          style: TextStyle(
+                            color: onColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Switch(value: batchMode, onChanged: onBatchChanged),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
           _bubble(
             context,
             dx: -92,

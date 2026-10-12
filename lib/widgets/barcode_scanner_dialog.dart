@@ -114,7 +114,11 @@ Future _runCrop(_CropJob job) => Isolate.run(() => _prepareCrop(job));
 // Stateful dialog widget presenting the camera viewfinder and barcode scanning UI.
 class BarcodeScannerDialog extends StatefulWidget {
   // Const constructor accepting an optional widget key.
-  const BarcodeScannerDialog({super.key});
+  // When set, the scanner stays open after each hit and reports every ISBN
+  // here instead of closing. The callback returns true if the ISBN was new.
+  final bool Function(String isbn)? onBatchIsbn;
+
+  const BarcodeScannerDialog({super.key, this.onBatchIsbn});
 
   @override
   // Creates and associates the mutable state instance for this widget.
@@ -122,7 +126,7 @@ class BarcodeScannerDialog extends StatefulWidget {
 }
 
 // State class managing camera lifecycle, periodic frame captures, and barcode parsing.
-class _BarcodeScannerDialogState extends State {
+class _BarcodeScannerDialogState extends State<BarcodeScannerDialog> {
   // Size of the purple targeting box, in logical pixels.
   // Logical pixel width of the on-screen barcode viewfinder box.
   static const double _boxW = 280;
@@ -159,6 +163,24 @@ class _BarcodeScannerDialogState extends State {
   Size _viewport = const Size(520, 480);
   // Text controller for the fallback manual ISBN input field.
   final TextEditingController _manualController = TextEditingController();
+  // Batch mode: how many new ISBNs were collected, and the last one seen.
+  int _batchCount = 0;
+  String? _lastBatchIsbn;
+
+  // Reports a hit to the batch callback, then pauses briefly so the same
+  // barcode is not read twice in a row.
+  void _handleBatchHit(String isbn) {
+    _hasDetected = true;
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      _hasDetected = false;
+    });
+    final added = widget.onBatchIsbn!(isbn);
+    if (!mounted) return;
+    setState(() {
+      _lastBatchIsbn = isbn;
+      if (added) _batchCount++;
+    });
+  }
 
   @override
   // Lifecycle hook invoked once when the widget is inserted into the widget tree.
@@ -215,7 +237,7 @@ class _BarcodeScannerDialogState extends State {
       final errors = [];
       // Try opening each camera in sorted priority order.
       for (final i in order) {
-        debugPrint('Trying camera (i:){_cameras[i].name}');
+        debugPrint('Trying camera \(i:\){_cameras[i].name}');
         // Attempt to start the camera at index i.
         final err = await _startCamera(i);
         // If startup succeeded without error, mark it as active and exit initialization.
@@ -226,7 +248,7 @@ class _BarcodeScannerDialogState extends State {
         // If the user dismissed the dialog during initialization, abort.
         if (!mounted) return;
         // Record failed attempt details.
-        errors.add('[(i]){_cameras[i].name}\n  $err');
+        errors.add('[\(i]\){_cameras[i].name}\n  $err');
         // Brief pause before trying the next camera to let hardware settle.
         await Future.delayed(const Duration(milliseconds: 200));
       }
@@ -294,7 +316,7 @@ class _BarcodeScannerDialogState extends State {
         _controller = candidate;
         // Log successful camera resolution details.
         debugPrint(
-          'Camera started at (preset, previewSize=){candidate.value.previewSize}',
+          'Camera started at \(preset, previewSize=\){candidate.value.previewSize}',
         );
         // Clear loading indicators and error states in the UI.
         setState(() {
@@ -307,9 +329,9 @@ class _BarcodeScannerDialogState extends State {
         return null;
       } catch (e) {
         // Record failure details and retry with next lower resolution.
-        lastErr = '(preset:)e';
+        lastErr = '\(preset:\)e';
         debugPrint(
-          'Camera (index (){_cameras[index].name}) failed at $lastErr',
+          'Camera \(index (\){_cameras[index].name}) failed at $lastErr',
         );
         // Dispose failed candidate controller before retrying.
         await candidate.dispose();
@@ -420,9 +442,9 @@ class _BarcodeScannerDialogState extends State {
             result.isValid && result.text != null && result.text!.isNotEmpty;
         // Log outcome to the debug console.
         if (found) {
-          debugPrint('>>> SUCCESS [(label]: Found barcode:){result.text}');
+          debugPrint('>>> SUCCESS [\(label]: Found barcode:\){result.text}');
         } else {
-          debugPrint('Frame (_frameCount [)label]: no barcode detected yet');
+          debugPrint('Frame \(_frameCount [\)label]: no barcode detected yet');
         }
 
         // Stop if a prior async event already matched or widget unmounted.
@@ -437,6 +459,11 @@ class _BarcodeScannerDialogState extends State {
 
           // Validate ISBN length: must be either ISBN-10 (10 chars) or ISBN-13 (13 chars).
           if (clean.length == 10 || clean.length == 13) {
+            // Batch mode: report the ISBN and keep scanning.
+            if (widget.onBatchIsbn != null) {
+              _handleBatchHit(clean);
+              return;
+            }
             // Mark detection completed to suppress subsequent scans.
             _hasDetected = true;
             // Stop scanning timer.
@@ -479,7 +506,7 @@ class _BarcodeScannerDialogState extends State {
       setState(() {
         _isInitializing = false;
         _errorMessage =
-            'Camera ({_cameras[_selectedCameraIndex].name} failed.\n\n)err';
+            'Camera \({_cameras[_selectedCameraIndex].name} failed.\n\n\)err';
       });
     }
   }
@@ -724,6 +751,32 @@ class _BarcodeScannerDialogState extends State {
                   ],
                 ),
               ),
+
+              // Batch mode: running counter of collected ISBNs.
+              if (widget.onBatchIsbn != null)
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      _lastBatchIsbn == null
+                          ? 'Batch: 0 scanned - close when finished'
+                          : 'Batch: $_batchCount scanned (last $_lastBatchIsbn)',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
 
               // Top-right close button to dismiss dialog.
               Positioned(
