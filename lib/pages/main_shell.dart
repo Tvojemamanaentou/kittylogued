@@ -8,7 +8,7 @@ import 'package:kittylogued/pages/book_form_page.dart';
 import 'package:kittylogued/pages/book_search_page.dart';
 import 'package:kittylogued/pages/home_page.dart';
 import 'package:kittylogued/pages/personal_page.dart';
-import 'package:kittylogued/pages/placeholder_page.dart';
+import 'package:kittylogued/pages/lending_page.dart';
 import 'package:kittylogued/services/batch_import_queue.dart';
 import 'package:kittylogued/services/isbn_lookup_service.dart';
 import 'package:kittylogued/widgets/add_book_menu.dart';
@@ -187,10 +187,7 @@ class _MainShellState extends State<MainShell> {
                   index: _index,
                   children: const [
                     HomePage(),
-                    PlaceholderPage(
-                      title: 'Lending / Borrowing',
-                      icon: Icons.swap_horiz,
-                    ),
+                    LendingPage(),
                     BookCatalogPage(),
                     PersonalPage(),
                   ],

@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:drift/drift.dart' as drift;
 import 'package:kittylogued/database/app_database.dart';
 import 'package:kittylogued/services/isbn_lookup_service.dart';
 

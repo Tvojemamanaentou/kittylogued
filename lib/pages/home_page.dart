@@ -176,7 +176,7 @@ class _HomePageState extends State<HomePage> {
     return Image.network(
       url,
       fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => placeholder,
+      errorBuilder: (_, _, _) => placeholder,
     );
   }
 
@@ -193,7 +193,7 @@ class _HomePageState extends State<HomePage> {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: section.books.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final book = section.books[index];
               return InkWell(

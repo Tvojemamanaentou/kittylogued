@@ -6,6 +6,7 @@ import 'package:kittylogued/services/auth_service.dart';
 import 'package:kittylogued/services/backup_service.dart';
 import 'package:kittylogued/services/batch_import_queue.dart';
 import 'package:kittylogued/services/cover_cache_service.dart';
+import 'package:kittylogued/services/friends_service.dart';
 import 'package:kittylogued/services/saved_views_store.dart';
 
 /// Everything the screens share. Built once in main() and handed to the
@@ -20,6 +21,7 @@ class AppServices {
   final BackupService backup;
   final BatchImportQueue batchQueue;
   final SavedViewsStore savedViews;
+  final FriendsService friends;
 
   /// Bump to ask the catalogue to focus its search box (Ctrl+F).
   final ValueNotifier<int> focusSearchRequests = ValueNotifier<int>(0);
@@ -35,6 +37,7 @@ class AppServices {
     required this.backup,
     required this.batchQueue,
     required this.savedViews,
+    required this.friends,
   });
 }
 

@@ -348,7 +348,7 @@ class _BatchItemCardState extends State<_BatchItemCard> {
                       ? Image.network(
                           cover,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
+                          errorBuilder: (_, _, _) =>
                               const Icon(Icons.book, color: Colors.grey),
                         )
                       : const Icon(Icons.book, color: Colors.grey),

@@ -3487,6 +3487,750 @@ class BatchQueueEntriesCompanion extends UpdateCompanion<BatchQueueEntry> {
   }
 }
 
+class $LoansTable extends Loans with TableInfo<$LoansTable, Loan> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LoansTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _uidMeta = const VerificationMeta('uid');
+  @override
+  late final GeneratedColumn<String> uid = GeneratedColumn<String>(
+    'uid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _directionMeta = const VerificationMeta(
+    'direction',
+  );
+  @override
+  late final GeneratedColumn<String> direction = GeneratedColumn<String>(
+    'direction',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('active'),
+  );
+  static const VerificationMeta _bookIdMeta = const VerificationMeta('bookId');
+  @override
+  late final GeneratedColumn<int> bookId = GeneratedColumn<int>(
+    'book_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES books (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _authorMeta = const VerificationMeta('author');
+  @override
+  late final GeneratedColumn<String> author = GeneratedColumn<String>(
+    'author',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _personUserIdMeta = const VerificationMeta(
+    'personUserId',
+  );
+  @override
+  late final GeneratedColumn<int> personUserId = GeneratedColumn<int>(
+    'person_user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _personNameMeta = const VerificationMeta(
+    'personName',
+  );
+  @override
+  late final GeneratedColumn<String> personName = GeneratedColumn<String>(
+    'person_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startedAt = GeneratedColumn<DateTime>(
+    'started_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _dueAtMeta = const VerificationMeta('dueAt');
+  @override
+  late final GeneratedColumn<DateTime> dueAt = GeneratedColumn<DateTime>(
+    'due_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _returnedAtMeta = const VerificationMeta(
+    'returnedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> returnedAt = GeneratedColumn<DateTime>(
+    'returned_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    uid,
+    direction,
+    status,
+    bookId,
+    title,
+    author,
+    personUserId,
+    personName,
+    startedAt,
+    dueAt,
+    returnedAt,
+    note,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'loans';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Loan> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('uid')) {
+      context.handle(
+        _uidMeta,
+        uid.isAcceptableOrUnknown(data['uid']!, _uidMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_uidMeta);
+    }
+    if (data.containsKey('direction')) {
+      context.handle(
+        _directionMeta,
+        direction.isAcceptableOrUnknown(data['direction']!, _directionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_directionMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('book_id')) {
+      context.handle(
+        _bookIdMeta,
+        bookId.isAcceptableOrUnknown(data['book_id']!, _bookIdMeta),
+      );
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    }
+    if (data.containsKey('author')) {
+      context.handle(
+        _authorMeta,
+        author.isAcceptableOrUnknown(data['author']!, _authorMeta),
+      );
+    }
+    if (data.containsKey('person_user_id')) {
+      context.handle(
+        _personUserIdMeta,
+        personUserId.isAcceptableOrUnknown(
+          data['person_user_id']!,
+          _personUserIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('person_name')) {
+      context.handle(
+        _personNameMeta,
+        personName.isAcceptableOrUnknown(data['person_name']!, _personNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_personNameMeta);
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    }
+    if (data.containsKey('due_at')) {
+      context.handle(
+        _dueAtMeta,
+        dueAt.isAcceptableOrUnknown(data['due_at']!, _dueAtMeta),
+      );
+    }
+    if (data.containsKey('returned_at')) {
+      context.handle(
+        _returnedAtMeta,
+        returnedAt.isAcceptableOrUnknown(data['returned_at']!, _returnedAtMeta),
+      );
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Loan map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Loan(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      uid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uid'],
+      )!,
+      direction: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}direction'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      bookId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}book_id'],
+      ),
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      ),
+      author: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author'],
+      ),
+      personUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}person_user_id'],
+      ),
+      personName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}person_name'],
+      )!,
+      startedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}started_at'],
+      )!,
+      dueAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}due_at'],
+      ),
+      returnedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}returned_at'],
+      ),
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+    );
+  }
+
+  @override
+  $LoansTable createAlias(String alias) {
+    return $LoansTable(attachedDatabase, alias);
+  }
+}
+
+class Loan extends DataClass implements Insertable<Loan> {
+  final int id;
+  final String uid;
+  final String direction;
+  final String status;
+  final int? bookId;
+  final String? title;
+  final String? author;
+
+  /// Set when the other person is a friend with an account (later).
+  final int? personUserId;
+
+  /// Friend's username or a nickname for someone without an account.
+  final String personName;
+  final DateTime startedAt;
+  final DateTime? dueAt;
+  final DateTime? returnedAt;
+  final String? note;
+  const Loan({
+    required this.id,
+    required this.uid,
+    required this.direction,
+    required this.status,
+    this.bookId,
+    this.title,
+    this.author,
+    this.personUserId,
+    required this.personName,
+    required this.startedAt,
+    this.dueAt,
+    this.returnedAt,
+    this.note,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['uid'] = Variable<String>(uid);
+    map['direction'] = Variable<String>(direction);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || bookId != null) {
+      map['book_id'] = Variable<int>(bookId);
+    }
+    if (!nullToAbsent || title != null) {
+      map['title'] = Variable<String>(title);
+    }
+    if (!nullToAbsent || author != null) {
+      map['author'] = Variable<String>(author);
+    }
+    if (!nullToAbsent || personUserId != null) {
+      map['person_user_id'] = Variable<int>(personUserId);
+    }
+    map['person_name'] = Variable<String>(personName);
+    map['started_at'] = Variable<DateTime>(startedAt);
+    if (!nullToAbsent || dueAt != null) {
+      map['due_at'] = Variable<DateTime>(dueAt);
+    }
+    if (!nullToAbsent || returnedAt != null) {
+      map['returned_at'] = Variable<DateTime>(returnedAt);
+    }
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    return map;
+  }
+
+  LoansCompanion toCompanion(bool nullToAbsent) {
+    return LoansCompanion(
+      id: Value(id),
+      uid: Value(uid),
+      direction: Value(direction),
+      status: Value(status),
+      bookId: bookId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bookId),
+      title: title == null && nullToAbsent
+          ? const Value.absent()
+          : Value(title),
+      author: author == null && nullToAbsent
+          ? const Value.absent()
+          : Value(author),
+      personUserId: personUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(personUserId),
+      personName: Value(personName),
+      startedAt: Value(startedAt),
+      dueAt: dueAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dueAt),
+      returnedAt: returnedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(returnedAt),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+    );
+  }
+
+  factory Loan.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Loan(
+      id: serializer.fromJson<int>(json['id']),
+      uid: serializer.fromJson<String>(json['uid']),
+      direction: serializer.fromJson<String>(json['direction']),
+      status: serializer.fromJson<String>(json['status']),
+      bookId: serializer.fromJson<int?>(json['bookId']),
+      title: serializer.fromJson<String?>(json['title']),
+      author: serializer.fromJson<String?>(json['author']),
+      personUserId: serializer.fromJson<int?>(json['personUserId']),
+      personName: serializer.fromJson<String>(json['personName']),
+      startedAt: serializer.fromJson<DateTime>(json['startedAt']),
+      dueAt: serializer.fromJson<DateTime?>(json['dueAt']),
+      returnedAt: serializer.fromJson<DateTime?>(json['returnedAt']),
+      note: serializer.fromJson<String?>(json['note']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'uid': serializer.toJson<String>(uid),
+      'direction': serializer.toJson<String>(direction),
+      'status': serializer.toJson<String>(status),
+      'bookId': serializer.toJson<int?>(bookId),
+      'title': serializer.toJson<String?>(title),
+      'author': serializer.toJson<String?>(author),
+      'personUserId': serializer.toJson<int?>(personUserId),
+      'personName': serializer.toJson<String>(personName),
+      'startedAt': serializer.toJson<DateTime>(startedAt),
+      'dueAt': serializer.toJson<DateTime?>(dueAt),
+      'returnedAt': serializer.toJson<DateTime?>(returnedAt),
+      'note': serializer.toJson<String?>(note),
+    };
+  }
+
+  Loan copyWith({
+    int? id,
+    String? uid,
+    String? direction,
+    String? status,
+    Value<int?> bookId = const Value.absent(),
+    Value<String?> title = const Value.absent(),
+    Value<String?> author = const Value.absent(),
+    Value<int?> personUserId = const Value.absent(),
+    String? personName,
+    DateTime? startedAt,
+    Value<DateTime?> dueAt = const Value.absent(),
+    Value<DateTime?> returnedAt = const Value.absent(),
+    Value<String?> note = const Value.absent(),
+  }) => Loan(
+    id: id ?? this.id,
+    uid: uid ?? this.uid,
+    direction: direction ?? this.direction,
+    status: status ?? this.status,
+    bookId: bookId.present ? bookId.value : this.bookId,
+    title: title.present ? title.value : this.title,
+    author: author.present ? author.value : this.author,
+    personUserId: personUserId.present ? personUserId.value : this.personUserId,
+    personName: personName ?? this.personName,
+    startedAt: startedAt ?? this.startedAt,
+    dueAt: dueAt.present ? dueAt.value : this.dueAt,
+    returnedAt: returnedAt.present ? returnedAt.value : this.returnedAt,
+    note: note.present ? note.value : this.note,
+  );
+  Loan copyWithCompanion(LoansCompanion data) {
+    return Loan(
+      id: data.id.present ? data.id.value : this.id,
+      uid: data.uid.present ? data.uid.value : this.uid,
+      direction: data.direction.present ? data.direction.value : this.direction,
+      status: data.status.present ? data.status.value : this.status,
+      bookId: data.bookId.present ? data.bookId.value : this.bookId,
+      title: data.title.present ? data.title.value : this.title,
+      author: data.author.present ? data.author.value : this.author,
+      personUserId: data.personUserId.present
+          ? data.personUserId.value
+          : this.personUserId,
+      personName: data.personName.present
+          ? data.personName.value
+          : this.personName,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      dueAt: data.dueAt.present ? data.dueAt.value : this.dueAt,
+      returnedAt: data.returnedAt.present
+          ? data.returnedAt.value
+          : this.returnedAt,
+      note: data.note.present ? data.note.value : this.note,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Loan(')
+          ..write('id: $id, ')
+          ..write('uid: $uid, ')
+          ..write('direction: $direction, ')
+          ..write('status: $status, ')
+          ..write('bookId: $bookId, ')
+          ..write('title: $title, ')
+          ..write('author: $author, ')
+          ..write('personUserId: $personUserId, ')
+          ..write('personName: $personName, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('dueAt: $dueAt, ')
+          ..write('returnedAt: $returnedAt, ')
+          ..write('note: $note')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    uid,
+    direction,
+    status,
+    bookId,
+    title,
+    author,
+    personUserId,
+    personName,
+    startedAt,
+    dueAt,
+    returnedAt,
+    note,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Loan &&
+          other.id == this.id &&
+          other.uid == this.uid &&
+          other.direction == this.direction &&
+          other.status == this.status &&
+          other.bookId == this.bookId &&
+          other.title == this.title &&
+          other.author == this.author &&
+          other.personUserId == this.personUserId &&
+          other.personName == this.personName &&
+          other.startedAt == this.startedAt &&
+          other.dueAt == this.dueAt &&
+          other.returnedAt == this.returnedAt &&
+          other.note == this.note);
+}
+
+class LoansCompanion extends UpdateCompanion<Loan> {
+  final Value<int> id;
+  final Value<String> uid;
+  final Value<String> direction;
+  final Value<String> status;
+  final Value<int?> bookId;
+  final Value<String?> title;
+  final Value<String?> author;
+  final Value<int?> personUserId;
+  final Value<String> personName;
+  final Value<DateTime> startedAt;
+  final Value<DateTime?> dueAt;
+  final Value<DateTime?> returnedAt;
+  final Value<String?> note;
+  const LoansCompanion({
+    this.id = const Value.absent(),
+    this.uid = const Value.absent(),
+    this.direction = const Value.absent(),
+    this.status = const Value.absent(),
+    this.bookId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.author = const Value.absent(),
+    this.personUserId = const Value.absent(),
+    this.personName = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.dueAt = const Value.absent(),
+    this.returnedAt = const Value.absent(),
+    this.note = const Value.absent(),
+  });
+  LoansCompanion.insert({
+    this.id = const Value.absent(),
+    required String uid,
+    required String direction,
+    this.status = const Value.absent(),
+    this.bookId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.author = const Value.absent(),
+    this.personUserId = const Value.absent(),
+    required String personName,
+    this.startedAt = const Value.absent(),
+    this.dueAt = const Value.absent(),
+    this.returnedAt = const Value.absent(),
+    this.note = const Value.absent(),
+  }) : uid = Value(uid),
+       direction = Value(direction),
+       personName = Value(personName);
+  static Insertable<Loan> custom({
+    Expression<int>? id,
+    Expression<String>? uid,
+    Expression<String>? direction,
+    Expression<String>? status,
+    Expression<int>? bookId,
+    Expression<String>? title,
+    Expression<String>? author,
+    Expression<int>? personUserId,
+    Expression<String>? personName,
+    Expression<DateTime>? startedAt,
+    Expression<DateTime>? dueAt,
+    Expression<DateTime>? returnedAt,
+    Expression<String>? note,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (uid != null) 'uid': uid,
+      if (direction != null) 'direction': direction,
+      if (status != null) 'status': status,
+      if (bookId != null) 'book_id': bookId,
+      if (title != null) 'title': title,
+      if (author != null) 'author': author,
+      if (personUserId != null) 'person_user_id': personUserId,
+      if (personName != null) 'person_name': personName,
+      if (startedAt != null) 'started_at': startedAt,
+      if (dueAt != null) 'due_at': dueAt,
+      if (returnedAt != null) 'returned_at': returnedAt,
+      if (note != null) 'note': note,
+    });
+  }
+
+  LoansCompanion copyWith({
+    Value<int>? id,
+    Value<String>? uid,
+    Value<String>? direction,
+    Value<String>? status,
+    Value<int?>? bookId,
+    Value<String?>? title,
+    Value<String?>? author,
+    Value<int?>? personUserId,
+    Value<String>? personName,
+    Value<DateTime>? startedAt,
+    Value<DateTime?>? dueAt,
+    Value<DateTime?>? returnedAt,
+    Value<String?>? note,
+  }) {
+    return LoansCompanion(
+      id: id ?? this.id,
+      uid: uid ?? this.uid,
+      direction: direction ?? this.direction,
+      status: status ?? this.status,
+      bookId: bookId ?? this.bookId,
+      title: title ?? this.title,
+      author: author ?? this.author,
+      personUserId: personUserId ?? this.personUserId,
+      personName: personName ?? this.personName,
+      startedAt: startedAt ?? this.startedAt,
+      dueAt: dueAt ?? this.dueAt,
+      returnedAt: returnedAt ?? this.returnedAt,
+      note: note ?? this.note,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (uid.present) {
+      map['uid'] = Variable<String>(uid.value);
+    }
+    if (direction.present) {
+      map['direction'] = Variable<String>(direction.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (bookId.present) {
+      map['book_id'] = Variable<int>(bookId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (author.present) {
+      map['author'] = Variable<String>(author.value);
+    }
+    if (personUserId.present) {
+      map['person_user_id'] = Variable<int>(personUserId.value);
+    }
+    if (personName.present) {
+      map['person_name'] = Variable<String>(personName.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<DateTime>(startedAt.value);
+    }
+    if (dueAt.present) {
+      map['due_at'] = Variable<DateTime>(dueAt.value);
+    }
+    if (returnedAt.present) {
+      map['returned_at'] = Variable<DateTime>(returnedAt.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LoansCompanion(')
+          ..write('id: $id, ')
+          ..write('uid: $uid, ')
+          ..write('direction: $direction, ')
+          ..write('status: $status, ')
+          ..write('bookId: $bookId, ')
+          ..write('title: $title, ')
+          ..write('author: $author, ')
+          ..write('personUserId: $personUserId, ')
+          ..write('personName: $personName, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('dueAt: $dueAt, ')
+          ..write('returnedAt: $returnedAt, ')
+          ..write('note: $note')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3499,6 +4243,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $LookupCacheEntriesTable(this);
   late final $BatchQueueEntriesTable batchQueueEntries =
       $BatchQueueEntriesTable(this);
+  late final $LoansTable loans = $LoansTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3511,6 +4256,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     readingLogs,
     lookupCacheEntries,
     batchQueueEntries,
+    loans,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -3534,6 +4280,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('reading_logs', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'books',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('loans', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -3988,6 +4741,25 @@ final class $$BooksTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$LoansTable, List<Loan>> _loansRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.loans,
+    aliasName: 'books__id__loans__book_id',
+  );
+
+  $$LoansTableProcessedTableManager get loansRefs {
+    final manager = $$LoansTableTableManager(
+      $_db,
+      $_db.loans,
+    ).filter((f) => f.bookId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_loansRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
@@ -4212,6 +4984,31 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
           }) => $$ReadingLogsTableFilterComposer(
             $db: $db,
             $table: $db.readingLogs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> loansRefs(
+    Expression<bool> Function($$LoansTableFilterComposer f) f,
+  ) {
+    final $$LoansTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.loans,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LoansTableFilterComposer(
+            $db: $db,
+            $table: $db.loans,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4606,6 +5403,31 @@ class $$BooksTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> loansRefs<T extends Object>(
+    Expression<T> Function($$LoansTableAnnotationComposer a) f,
+  ) {
+    final $$LoansTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.loans,
+      getReferencedColumn: (t) => t.bookId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LoansTableAnnotationComposer(
+            $db: $db,
+            $table: $db.loans,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$BooksTableTableManager
@@ -4625,6 +5447,7 @@ class $$BooksTableTableManager
             bool ownerId,
             bool bookTagsRefs,
             bool readingLogsRefs,
+            bool loansRefs,
           })
         > {
   $$BooksTableTableManager(_$AppDatabase db, $BooksTable table)
@@ -4783,12 +5606,14 @@ class $$BooksTableTableManager
                 ownerId = false,
                 bookTagsRefs = false,
                 readingLogsRefs = false,
+                loansRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (bookTagsRefs) db.bookTags,
                     if (readingLogsRefs) db.readingLogs,
+                    if (loansRefs) db.loans,
                   ],
                   addJoins:
                       <
@@ -4860,6 +5685,19 @@ class $$BooksTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (loansRefs)
+                        await $_getPrefetchedData<Book, $BooksTable, Loan>(
+                          currentTable: table,
+                          referencedTable: $$BooksTableReferences
+                              ._loansRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BooksTableReferences(db, table, p0).loansRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.bookId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -4884,6 +5722,7 @@ typedef $$BooksTableProcessedTableManager =
         bool ownerId,
         bool bookTagsRefs,
         bool readingLogsRefs,
+        bool loansRefs,
       })
     >;
 typedef $$TagsTableCreateCompanionBuilder = TagsCompanion Function({
@@ -6135,6 +6974,471 @@ typedef $$BatchQueueEntriesTableProcessedTableManager =
       BatchQueueEntry,
       PrefetchHooks Function()
     >;
+typedef $$LoansTableCreateCompanionBuilder = LoansCompanion Function({
+  Value<int> id,
+  required String uid,
+  required String direction,
+  Value<String> status,
+  Value<int?> bookId,
+  Value<String?> title,
+  Value<String?> author,
+  Value<int?> personUserId,
+  required String personName,
+  Value<DateTime> startedAt,
+  Value<DateTime?> dueAt,
+  Value<DateTime?> returnedAt,
+  Value<String?> note,
+});
+typedef $$LoansTableUpdateCompanionBuilder = LoansCompanion Function({
+  Value<int> id,
+  Value<String> uid,
+  Value<String> direction,
+  Value<String> status,
+  Value<int?> bookId,
+  Value<String?> title,
+  Value<String?> author,
+  Value<int?> personUserId,
+  Value<String> personName,
+  Value<DateTime> startedAt,
+  Value<DateTime?> dueAt,
+  Value<DateTime?> returnedAt,
+  Value<String?> note,
+});
+
+final class $$LoansTableReferences
+    extends BaseReferences<_$AppDatabase, $LoansTable, Loan> {
+  $$LoansTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BooksTable _bookIdTable(_$AppDatabase db) =>
+      db.books.createAlias('loans__book_id__books__id');
+
+  $$BooksTableProcessedTableManager? get bookId {
+    final $_column = $_itemColumn<int>('book_id');
+    if ($_column == null) return null;
+    final manager = $$BooksTableTableManager(
+      $_db,
+      $_db.books,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_bookIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$LoansTableFilterComposer extends Composer<_$AppDatabase, $LoansTable> {
+  $$LoansTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get uid => $composableBuilder(
+    column: $table.uid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get direction => $composableBuilder(
+    column: $table.direction,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get author => $composableBuilder(
+    column: $table.author,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get personUserId => $composableBuilder(
+    column: $table.personUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get personName => $composableBuilder(
+    column: $table.personName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get dueAt => $composableBuilder(
+    column: $table.dueAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get returnedAt => $composableBuilder(
+    column: $table.returnedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BooksTableFilterComposer get bookId {
+    final $$BooksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableFilterComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LoansTableOrderingComposer
+    extends Composer<_$AppDatabase, $LoansTable> {
+  $$LoansTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get uid => $composableBuilder(
+    column: $table.uid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get direction => $composableBuilder(
+    column: $table.direction,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get author => $composableBuilder(
+    column: $table.author,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get personUserId => $composableBuilder(
+    column: $table.personUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get personName => $composableBuilder(
+    column: $table.personName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get dueAt => $composableBuilder(
+    column: $table.dueAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get returnedAt => $composableBuilder(
+    column: $table.returnedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BooksTableOrderingComposer get bookId {
+    final $$BooksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableOrderingComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LoansTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LoansTable> {
+  $$LoansTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get uid =>
+      $composableBuilder(column: $table.uid, builder: (column) => column);
+
+  GeneratedColumn<String> get direction =>
+      $composableBuilder(column: $table.direction, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get author =>
+      $composableBuilder(column: $table.author, builder: (column) => column);
+
+  GeneratedColumn<int> get personUserId => $composableBuilder(
+    column: $table.personUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get personName => $composableBuilder(
+    column: $table.personName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get dueAt =>
+      $composableBuilder(column: $table.dueAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get returnedAt => $composableBuilder(
+    column: $table.returnedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  $$BooksTableAnnotationComposer get bookId {
+    final $$BooksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.bookId,
+      referencedTable: $db.books,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BooksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.books,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LoansTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LoansTable,
+          Loan,
+          $$LoansTableFilterComposer,
+          $$LoansTableOrderingComposer,
+          $$LoansTableAnnotationComposer,
+          $$LoansTableCreateCompanionBuilder,
+          $$LoansTableUpdateCompanionBuilder,
+          (Loan, $$LoansTableReferences),
+          Loan,
+          PrefetchHooks Function({bool bookId})
+        > {
+  $$LoansTableTableManager(_$AppDatabase db, $LoansTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LoansTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LoansTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LoansTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> uid = const Value.absent(),
+                Value<String> direction = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int?> bookId = const Value.absent(),
+                Value<String?> title = const Value.absent(),
+                Value<String?> author = const Value.absent(),
+                Value<int?> personUserId = const Value.absent(),
+                Value<String> personName = const Value.absent(),
+                Value<DateTime> startedAt = const Value.absent(),
+                Value<DateTime?> dueAt = const Value.absent(),
+                Value<DateTime?> returnedAt = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+              }) => LoansCompanion(
+                id: id,
+                uid: uid,
+                direction: direction,
+                status: status,
+                bookId: bookId,
+                title: title,
+                author: author,
+                personUserId: personUserId,
+                personName: personName,
+                startedAt: startedAt,
+                dueAt: dueAt,
+                returnedAt: returnedAt,
+                note: note,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String uid,
+                required String direction,
+                Value<String> status = const Value.absent(),
+                Value<int?> bookId = const Value.absent(),
+                Value<String?> title = const Value.absent(),
+                Value<String?> author = const Value.absent(),
+                Value<int?> personUserId = const Value.absent(),
+                required String personName,
+                Value<DateTime> startedAt = const Value.absent(),
+                Value<DateTime?> dueAt = const Value.absent(),
+                Value<DateTime?> returnedAt = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+              }) => LoansCompanion.insert(
+                id: id,
+                uid: uid,
+                direction: direction,
+                status: status,
+                bookId: bookId,
+                title: title,
+                author: author,
+                personUserId: personUserId,
+                personName: personName,
+                startedAt: startedAt,
+                dueAt: dueAt,
+                returnedAt: returnedAt,
+                note: note,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LoansTable, Loan>(table),
+                  $$LoansTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({bookId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (bookId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.bookId,
+                        referencedTable: $$LoansTableReferences._bookIdTable(
+                          db,
+                        ),
+                        referencedColumn: $$LoansTableReferences
+                            ._bookIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$LoansTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LoansTable,
+      Loan,
+      $$LoansTableFilterComposer,
+      $$LoansTableOrderingComposer,
+      $$LoansTableAnnotationComposer,
+      $$LoansTableCreateCompanionBuilder,
+      $$LoansTableUpdateCompanionBuilder,
+      (Loan, $$LoansTableReferences),
+      Loan,
+      PrefetchHooks Function({bool bookId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6152,4 +7456,6 @@ class $AppDatabaseManager {
       $$LookupCacheEntriesTableTableManager(_db, _db.lookupCacheEntries);
   $$BatchQueueEntriesTableTableManager get batchQueueEntries =>
       $$BatchQueueEntriesTableTableManager(_db, _db.batchQueueEntries);
+  $$LoansTableTableManager get loans =>
+      $$LoansTableTableManager(_db, _db.loans);
 }

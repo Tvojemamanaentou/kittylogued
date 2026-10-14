@@ -90,6 +90,32 @@ class ReadingLogs extends Table {
   TextColumn get note => text().nullable()();
 }
 
+/// Lending and borrowing.
+/// - direction 'lent': one of my books is with someone else (bookId is set).
+/// - direction 'borrowed': I have someone else's book (title/author are set,
+///   because it is not in my library).
+/// Status: 'requested' (asked a friend, waiting), 'active', 'returned'.
+class Loans extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get uid => text()();
+  TextColumn get direction => text()();
+  TextColumn get status => text().withDefault(const Constant('active'))();
+  IntColumn get bookId =>
+      integer().nullable().references(Books, #id, onDelete: KeyAction.cascade)();
+  TextColumn get title => text().nullable()();
+  TextColumn get author => text().nullable()();
+
+  /// Set when the other person is a friend with an account (later).
+  IntColumn get personUserId => integer().nullable()();
+
+  /// Friend's username or a nickname for someone without an account.
+  TextColumn get personName => text()();
+  DateTimeColumn get startedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get dueAt => dateTime().nullable()();
+  DateTimeColumn get returnedAt => dateTime().nullable()();
+  TextColumn get note => text().nullable()();
+}
+
 /// Cached ISBN lookup results, so repeated lookups do not hit the network.
 class LookupCacheEntries extends Table {
   TextColumn get isbn => text()();
@@ -139,7 +165,7 @@ LazyDatabase _openConnection() {
 }
 
 /// Current schema version. Raise it with every schema change.
-const int kSchemaVersion = 6;
+const int kSchemaVersion = 7;
 
 @DriftDatabase(
   tables: [
@@ -150,6 +176,7 @@ const int kSchemaVersion = 6;
     ReadingLogs,
     LookupCacheEntries,
     BatchQueueEntries,
+    Loans,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -224,6 +251,9 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(books, books.deletedAt);
         await m.createTable(lookupCacheEntries);
         await m.createTable(batchQueueEntries);
+      }
+      if (from < 7) {
+        await m.createTable(loans);
       }
     },
     beforeOpen: (details) async {
@@ -356,6 +386,23 @@ class AppDatabase extends _$AppDatabase {
         .watch();
   }
 
+  /// One book (live or deleted), kept up to date.
+  Stream<Book?> watchBook(int id) {
+    return (select(books)..where((b) => b.id.equals(id))).watchSingleOrNull();
+  }
+
+  /// All loans with the lent book attached (when there is one), newest first.
+  Stream<List<LoanEntry>> watchLoanEntries() {
+    final query = select(loans).join([
+      leftOuterJoin(books, books.id.equalsExp(loans.bookId)),
+    ])..orderBy([OrderingTerm.desc(loans.startedAt)]);
+    return query.watch().map(
+      (rows) => rows
+          .map((r) => LoanEntry(r.readTable(loans), r.readTableOrNull(books)))
+          .toList(),
+    );
+  }
+
   /// Writes a consistent copy of the whole database to [path].
   Future<void> vacuumInto(String path) {
     return customStatement('VACUUM INTO ?', [path]);
@@ -411,4 +458,12 @@ class AppDatabase extends _$AppDatabase {
       }
     });
   }
+}
+
+/// A loan together with the book it is about (when it is one of mine).
+class LoanEntry {
+  final Loan loan;
+  final Book? book;
+
+  const LoanEntry(this.loan, this.book);
 }

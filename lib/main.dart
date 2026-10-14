@@ -12,6 +12,7 @@ import 'package:kittylogued/services/backup_service.dart';
 import 'package:kittylogued/services/batch_import_queue.dart';
 import 'package:kittylogued/services/batch_queue_store.dart';
 import 'package:kittylogued/services/cover_cache_service.dart';
+import 'package:kittylogued/services/friends_service.dart';
 import 'package:kittylogued/services/isbn_lookup_service.dart';
 import 'package:kittylogued/services/lookup_cache_store.dart';
 import 'package:kittylogued/services/saved_views_store.dart';
@@ -32,6 +33,7 @@ Future<void> main() async {
     backup: BackupService(database),
     batchQueue: BatchImportQueue(store: BatchQueueStore(database)),
     savedViews: await SavedViewsStore.load(),
+    friends: FriendsService(),
   );
   IsbnLookupService.cache = LookupCacheStore(database);
 

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:drift/drift.dart' as drift;
 import 'package:kittylogued/database/app_database.dart';
 import 'package:kittylogued/app_services.dart';
 import 'package:kittylogued/services/saved_views_store.dart';
@@ -10,7 +9,9 @@ import 'package:kittylogued/utils/text_normalizer.dart';
 import 'package:kittylogued/widgets/book_cover_thumbnail.dart';
 import 'package:kittylogued/widgets/cover_viewer.dart';
 import 'package:kittylogued/pages/book_form_page.dart';
+import 'package:kittylogued/pages/book_detail_page.dart';
 import 'package:kittylogued/widgets/book_detail_pane.dart';
+import 'package:kittylogued/widgets/lending_dialogs.dart';
 import 'package:kittylogued/widgets/quick_update_sheet.dart';
 import 'package:kittylogued/widgets/star_rating.dart';
 import 'package:kittylogued/widgets/reading_progress_bar.dart';
@@ -36,6 +37,8 @@ class _BookCatalogPageState extends State<BookCatalogPage> {
   int? _selectedBookId;
   final Map<int, (String, String)> _searchIndex = {};
   late final ValueNotifier<int> _focusRequests;
+  Map<int, Loan> _loansByBook = {};
+  StreamSubscription<List<LoanEntry>>? _loanSub;
   Map<int, List<Tag>> _tagsByBook = {};
   StreamSubscription<Map<int, List<Tag>>>? _tagSub;
 
@@ -45,6 +48,18 @@ class _BookCatalogPageState extends State<BookCatalogPage> {
     final services = AppScope.of(context);
     _tagSub = services.database.watchTagsByBook().listen((map) {
       if (mounted) setState(() => _tagsByBook = map);
+    });
+    _loanSub = services.database.watchLoanEntries().listen((entries) {
+      if (!mounted) return;
+      setState(() {
+        _loansByBook = {
+          for (final e in entries)
+            if (e.loan.direction == 'lent' &&
+                e.loan.status == 'active' &&
+                e.loan.bookId != null)
+              e.loan.bookId!: e.loan,
+        };
+      });
     });
     _focusRequests = services.focusSearchRequests;
     _focusRequests.addListener(_onFocusRequest);
@@ -58,6 +73,7 @@ class _BookCatalogPageState extends State<BookCatalogPage> {
   void dispose() {
     _focusRequests.removeListener(_onFocusRequest);
     _tagSub?.cancel();
+    _loanSub?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -172,7 +188,13 @@ class _BookCatalogPageState extends State<BookCatalogPage> {
                   tags: _tagsByBook[selected.id] ?? const <Tag>[],
                   coverCache: _s.coverCache,
                   onEdit: () => _openEditBookDialog(context, selected),
+                  loan: _loansByBook[selected.id],
                   onQuickUpdate: () => _openQuickUpdate(context, selected),
+                  onLendOrReturn: () => lendOrReturnBook(
+                    context,
+                    selected,
+                    _loansByBook[selected.id],
+                  ),
                 ),
         ),
       ],
@@ -361,7 +383,7 @@ class _BookCatalogPageState extends State<BookCatalogPage> {
   }
 
   /// Small progress bar shown in the title row, between name and edit button.
-  Widget _buildTitleProgress(Book book) {
+  Widget _buildTitleProgress(Book book, {double width = 52}) {
     final total = book.pageCount;
     final status = book.readingStatus;
     if (status == 'reading' && (total ?? 0) <= 0) {
@@ -371,12 +393,106 @@ class _BookCatalogPageState extends State<BookCatalogPage> {
     final bar = ReadingProgressBar(
       status: status,
       fraction: fraction,
-      width: 52,
+      width: width,
       height: 5,
     );
     if (total == null || total <= 0) return bar;
     final shown = status == 'read' ? total : book.currentPage;
     return Tooltip(message: '$shown / $total pages', child: bar);
+  }
+
+  static String _fmtDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  void _openDetail(BuildContext context, Book book) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => BookDetailPage(bookId: book.id)),
+    );
+  }
+
+  /// Edit and delete side by side on top, the lend button underneath.
+  Widget _buildTrailing(BuildContext context, Book book, Loan? loan) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.edit_outlined),
+          tooltip: 'Edit book',
+          onPressed: () => _openEditBookDialog(context, book),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+          tooltip: 'Delete book',
+          onPressed: () => _deleteBook(context, book),
+        ),
+        TextButton.icon(
+          onPressed: () => lendOrReturnBook(context, book, loan),
+          icon: const Icon(Icons.swap_horiz, size: 18),
+          label: Text(loan == null ? 'Lend' : 'Return'),
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// One small menu instead of two icon buttons on narrow tiles.
+  Widget _buildCompactMenu(BuildContext context, Book book, Loan? loan) {
+    return PopupMenuButton<String>(
+      tooltip: 'More',
+      onSelected: (value) {
+        switch (value) {
+          case 'edit':
+            _openEditBookDialog(context, book);
+            break;
+          case 'quick':
+            _openQuickUpdate(context, book);
+            break;
+          case 'lend':
+            lendOrReturnBook(context, book, loan);
+            break;
+          case 'delete':
+            _deleteBook(context, book);
+            break;
+        }
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          value: 'edit',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.edit_outlined),
+            title: Text('Edit'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'quick',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.bolt),
+            title: Text('Quick update'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'lend',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.swap_horiz),
+            title: Text(loan == null ? 'Lend' : 'Mark returned'),
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'delete',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.delete_outline, color: Colors.redAccent),
+            title: Text('Delete'),
+          ),
+        ),
+      ],
+    );
   }
 
   int get _activeFilterCount =>
@@ -427,19 +543,20 @@ class _BookCatalogPageState extends State<BookCatalogPage> {
   /// Bottom sheet: sorting, saved views and the three filters (holding
   /// place, status, tags).
   Future<void> _openFilterSheet() async {
-    final books = await (_s.database.select(_s.database.books)
-          ..where((b) => b.deletedAt.isNull()))
-        .get();
+    final books = await (_s.database.select(
+      _s.database.books,
+    )..where((b) => b.deletedAt.isNull())).get();
     final shelves = <String>{
       for (final b in books)
         if (b.shelfLocation != null && b.shelfLocation!.trim().isNotEmpty)
           b.shelfLocation!.trim(),
     }.toList()..sort();
-    final tagNames = _tagsByBook.values
-        .expand((list) => list.map((tag) => tag.name))
-        .toSet()
-        .toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final tagNames =
+        _tagsByBook.values
+            .expand((list) => list.map((tag) => tag.name))
+            .toSet()
+            .toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     if (!mounted) return;
 
     await showModalBottomSheet<void>(
@@ -533,7 +650,8 @@ class _BookCatalogPageState extends State<BookCatalogPage> {
                               InputChip(
                                 label: Text(view.name),
                                 onPressed: () => update(() => _applyView(view)),
-                                onDeleted: () => _s.savedViews.remove(view.name),
+                                onDeleted: () =>
+                                    _s.savedViews.remove(view.name),
                               ),
                             ActionChip(
                               avatar: const Icon(Icons.add, size: 16),
@@ -668,8 +786,7 @@ class _BookCatalogPageState extends State<BookCatalogPage> {
                     onChanged: (value) =>
                         setState(() => _searchQuery = value.trim()),
                     decoration: InputDecoration(
-                      hintText:
-                          'Search title, author, ISBN, signatura, or publisher...',
+                      hintText: 'Search title, author, ISBN, signatura, or publisher...',
                       prefixIcon: const Icon(Icons.search),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
@@ -786,8 +903,7 @@ class _BookCatalogPageState extends State<BookCatalogPage> {
                   }
 
                   return true;
-                }).toList()
-                  ..sort(_compareBooks);
+                }).toList()..sort(_compareBooks);
 
                 final listColumn = Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -836,157 +952,251 @@ class _BookCatalogPageState extends State<BookCatalogPage> {
                                 final hasSignatura =
                                     book.signatura != null &&
                                     book.signatura!.trim().isNotEmpty;
+                                final loan = _loansByBook[book.id];
 
-                                return Dismissible(
-                                  key: ValueKey('book-${book.id}'),
-                                  background: _swipeBackground(
-                                    Alignment.centerLeft,
-                                    Colors.green,
-                                    Icons.check_circle_outline,
-                                    'Mark finished',
-                                  ),
-                                  secondaryBackground: _swipeBackground(
-                                    Alignment.centerRight,
-                                    Colors.redAccent,
-                                    Icons.delete_outline,
-                                    'Delete',
-                                  ),
-                                  confirmDismiss: (direction) async {
-                                    if (direction ==
-                                        DismissDirection.startToEnd) {
-                                      await _markRead(context, book);
-                                    } else {
-                                      await _deleteBook(context, book);
-                                    }
-                                    return false; // the list updates itself
+                                // Narrow tiles (phone in portrait) move the progress bar and
+                                // status below the title and use a compact menu.
+                                return LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final compact = constraints.maxWidth < 720;
+                                    return Dismissible(
+                                      key: ValueKey('book-${book.id}'),
+                                      background: _swipeBackground(
+                                        Alignment.centerLeft,
+                                        Colors.green,
+                                        Icons.check_circle_outline,
+                                        'Mark finished',
+                                      ),
+                                      secondaryBackground: _swipeBackground(
+                                        Alignment.centerRight,
+                                        Colors.redAccent,
+                                        Icons.delete_outline,
+                                        'Delete',
+                                      ),
+                                      confirmDismiss: (direction) async {
+                                        if (direction ==
+                                            DismissDirection.startToEnd) {
+                                          await _markRead(context, book);
+                                        } else {
+                                          await _deleteBook(context, book);
+                                        }
+                                        return false; // the list updates itself
+                                      },
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.translucent,
+                                        onSecondaryTap: () =>
+                                            _openQuickUpdate(context, book),
+                                        child: Opacity(
+                                          opacity: loan != null ? 0.5 : 1.0,
+                                          child: Card(
+                                            margin: const EdgeInsets.symmetric(
+                                              vertical: 5,
+                                            ),
+                                            child: ListTile(
+                                              selected:
+                                                  _isWide(context) &&
+                                                  _selectedBookId == book.id,
+                                              onTap: () => _isWide(context)
+                                                  ? setState(
+                                                      () => _selectedBookId =
+                                                          book.id,
+                                                    )
+                                                  : _openDetail(context, book),
+                                              onLongPress: () =>
+                                                  _openQuickUpdate(
+                                                    context,
+                                                    book,
+                                                  ),
+                                              leading: GestureDetector(
+                                                onTap: () => showCoverViewer(
+                                                  context,
+                                                  title: book.title,
+                                                  isbn: book.isbn,
+                                                  coverUrl: book.coverUrl,
+                                                  cacheService: _s.coverCache,
+                                                ),
+                                                child: BookCoverThumbnail(
+                                                  isbn: book.isbn,
+                                                  coverUrl: book.coverUrl,
+                                                  cacheService: _s.coverCache,
+                                                ),
+                                              ),
+                                              title: compact
+                                                  ? Text(
+                                                      book.title,
+                                                      maxLines: 3,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    )
+                                                  : Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(
+                                                            book.title,
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        _buildTitleProgress(
+                                                          book,
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 8,
+                                                        ),
+                                                        _buildStatusChip(
+                                                          book.readingStatus,
+                                                        ),
+                                                      ],
+                                                    ),
+                                              subtitle: Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 4,
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      '${book.author}\nShelf: $shelf${hasSignatura ? "  •  Call #: ${book.signatura}" : ""}',
+                                                    ),
+                                                    if (loan != null)
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                              top: 4,
+                                                            ),
+                                                        child: Row(
+                                                          children: [
+                                                            const Icon(
+                                                              Icons.swap_horiz,
+                                                              size: 14,
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 4,
+                                                            ),
+                                                            Flexible(
+                                                              child: Text(
+                                                                'Lent to ${loan.personName} • since ${_fmtDate(loan.startedAt)}',
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                                style: const TextStyle(
+                                                                  fontSize: 12,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    if (compact)
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                              top: 6,
+                                                            ),
+                                                        child: Row(
+                                                          children: [
+                                                            _buildTitleProgress(
+                                                              book,
+                                                              width: 90,
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 8,
+                                                            ),
+                                                            _buildStatusChip(
+                                                              book.readingStatus,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    if (book.ratingHalfStars !=
+                                                        null)
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                              top: 4,
+                                                            ),
+                                                        child: Row(
+                                                          children: [
+                                                            StarRating(
+                                                              value: book
+                                                                  .ratingHalfStars,
+                                                              size: 14,
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 6,
+                                                            ),
+                                                            Text(
+                                                              StarRating.label(
+                                                                book.ratingHalfStars,
+                                                              ),
+                                                              style:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        11,
+                                                                    color: Colors
+                                                                        .grey,
+                                                                  ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    if ((_tagsByBook[book.id] ??
+                                                            const <Tag>[])
+                                                        .isNotEmpty)
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                              top: 6,
+                                                            ),
+                                                        child: Wrap(
+                                                          spacing: 4,
+                                                          runSpacing: 4,
+                                                          children: [
+                                                            for (final tag
+                                                                in _tagsByBook[book
+                                                                    .id]!)
+                                                              _buildTagChip(
+                                                                tag,
+                                                              ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                              isThreeLine: true,
+                                              trailing: compact
+                                                  ? _buildCompactMenu(
+                                                      context,
+                                                      book,
+                                                      loan,
+                                                    )
+                                                  : _buildTrailing(
+                                                      context,
+                                                      book,
+                                                      loan,
+                                                    ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
                                   },
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.translucent,
-                                    onSecondaryTap: () =>
-                                        _openQuickUpdate(context, book),
-                                    child: Card(
-                                  margin: const EdgeInsets.symmetric(
-                                    vertical: 5,
-                                  ),
-                                  child: ListTile(
-                                    selected:
-                                        _isWide(context) &&
-                                        _selectedBookId == book.id,
-                                    onTap: () => _isWide(context)
-                                        ? setState(() => _selectedBookId = book.id)
-                                        : _openEditBookDialog(context, book),
-                                    onLongPress: () =>
-                                        _openQuickUpdate(context, book),
-                                    leading: GestureDetector(
-                                      onTap: () => showCoverViewer(
-                                        context,
-                                        title: book.title,
-                                        isbn: book.isbn,
-                                        coverUrl: book.coverUrl,
-                                        cacheService: _s.coverCache,
-                                      ),
-                                      child: BookCoverThumbnail(
-                                        isbn: book.isbn,
-                                        coverUrl: book.coverUrl,
-                                        cacheService: _s.coverCache,
-                                      ),
-                                    ),
-                                    title: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            book.title,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        _buildTitleProgress(book),
-                                        const SizedBox(width: 8),
-                                        _buildStatusChip(book.readingStatus),
-                                      ],
-                                    ),
-                                    subtitle: Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '${book.author}\nShelf: $shelf${hasSignatura ? "  •  Call #: ${book.signatura}" : ""}',
-                                          ),
-                                          if (book.ratingHalfStars != null)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                top: 4,
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  StarRating(
-                                                    value: book.ratingHalfStars,
-                                                    size: 14,
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  Text(
-                                                    StarRating.label(
-                                                      book.ratingHalfStars,
-                                                    ),
-                                                    style: const TextStyle(
-                                                      fontSize: 11,
-                                                      color: Colors.grey,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          if ((_tagsByBook[book.id] ?? const <Tag>[])
-                                              .isNotEmpty)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                top: 6,
-                                              ),
-                                              child: Wrap(
-                                                spacing: 4,
-                                                runSpacing: 4,
-                                                children: [
-                                                  for (final tag
-                                                      in _tagsByBook[book.id]!)
-                                                    _buildTagChip(tag),
-                                                ],
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    isThreeLine: true,
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.edit_outlined,
-                                          ),
-                                          tooltip: 'Edit book',
-                                          onPressed: () => _openEditBookDialog(
-                                            context,
-                                            book,
-                                          ),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.delete_outline,
-                                            color: Colors.redAccent,
-                                          ),
-                                          tooltip: 'Delete book',
-                                          onPressed: () =>
-                                              _deleteBook(context, book),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                    ),
-                                  ),
                                 );
                               },
                             ),

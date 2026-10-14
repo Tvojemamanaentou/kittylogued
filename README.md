@@ -20,6 +20,7 @@ Built with Flutter and a local SQLite database ([drift](https://drift.simonbinde
 - One filter tile: holding place (shelf), status, tags. Plus sorting (title, author, date added, rating, progress) and **saved views**.
 - Swipe right to mark finished, swipe left to delete (with Undo). Long-press or right-click for a quick "update page / rate" sheet.
 - On wide windows (980 px and up) a details panel shows the selected book.
+- Tap a book to open its full-screen details (with an Edit button); on wide windows the details show in a side panel instead.
 - Tap a cover to enlarge it.
 
 **Reading**
@@ -30,6 +31,12 @@ Built with Flutter and a local SQLite database ([drift](https://drift.simonbinde
 **Notes, tags and privacy**
 - **Public** (meant to be visible to friends once sharing exists): rating, comment, public tags.
 - **Private** (never leave the device): private notes, private tags.
+
+**Lending and borrowing**
+- **Lend** button in the catalogue (under edit/delete): pick a friend or type a nickname for someone without an account, optional due date. The book is greyed out with "Lent to ...", and the button becomes **Return**.
+- **Lending page**: everything lent out, borrowed and requested, with due dates (overdue in red) and a returned history.
+- Ask a friend to lend you a book (saved now, sent once friends are connected), or record a book borrowed from someone without an account.
+- Friends list is a stub with example friends until the server exists.
 
 **Home and profile**
 - Home: yearly reading goal, streak, charts (books and pages per month, rating spread), book suggestions and friends activity.
@@ -134,11 +141,11 @@ Everything under Features above, running locally.
 - Kittylogued server as the first lookup source and as a place to send new-book data (with an offline retry queue and a consent switch).
 - Working weekly/monthly recommendations (for example via a server that caches NYT and Open Library lists).
 - Home redesign: full-width carousels, friend tiles with blurred covers, full-screen reels-style feed.
-- Lending and borrowing tracker (the tab is still a placeholder).
+- Real friends, notifications for borrow requests, and changing the friend's book state when a request is accepted.
 - Export and import (CSV/JSON), Czech/English translations, shelves as real entities with a shelf audit, duplicate detection and merge.
 
 ---
 
 ## License
 
-Copyright (c) 2026 Isabella Alena Pamela Fernándezová (GitHub: Tvojemamanaentou). All rights reserved
+Not chosen yet. Add a `LICENSE` file before sharing the code.

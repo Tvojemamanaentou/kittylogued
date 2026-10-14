@@ -15,6 +15,10 @@ class BookDetailPane extends StatelessWidget {
   final CoverCacheService coverCache;
   final VoidCallback onEdit;
   final VoidCallback onQuickUpdate;
+  final VoidCallback onLendOrReturn;
+
+  /// The active loan when this book is lent out.
+  final Loan? loan;
 
   const BookDetailPane({
     super.key,
@@ -23,6 +27,8 @@ class BookDetailPane extends StatelessWidget {
     required this.coverCache,
     required this.onEdit,
     required this.onQuickUpdate,
+    required this.onLendOrReturn,
+    this.loan,
   });
 
   static String _fmt(DateTime d) =>
@@ -78,6 +84,7 @@ class BookDetailPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeLoan = loan;
     final total = book.pageCount;
     final hasTotal = total != null && total > 0;
     final fraction = ReadingProgress.fraction(
@@ -150,8 +157,22 @@ class BookDetailPane extends StatelessWidget {
               icon: const Icon(Icons.bolt, size: 18),
               label: const Text('Quick update'),
             ),
+            OutlinedButton.icon(
+              onPressed: onLendOrReturn,
+              icon: const Icon(Icons.swap_horiz, size: 18),
+              label: Text(activeLoan == null ? 'Lend' : 'Mark returned'),
+            ),
           ],
         ),
+        if (activeLoan != null)
+          _section(
+            'Lent out',
+            Text(
+              'Lent to ${activeLoan.personName} since ${_fmt(activeLoan.startedAt)}'
+              '${activeLoan.dueAt != null ? ' • due ${_fmt(activeLoan.dueAt!)}' : ''}',
+            ),
+            icon: Icons.swap_horiz,
+          ),
         _section(
           statusLabel,
           Row(

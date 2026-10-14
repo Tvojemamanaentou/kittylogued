@@ -81,6 +81,91 @@ class LibraryRepository {
   }
 
   // -------------------------------------------------------------------
+  // Lending and borrowing
+  // -------------------------------------------------------------------
+
+  /// Lends one of my books to a friend or to someone without an account.
+  Future<int> lendBook(
+    Book book, {
+    required String personName,
+    int? personUserId,
+    DateTime? dueAt,
+  }) {
+    return db
+        .into(db.loans)
+        .insert(
+          LoansCompanion.insert(
+            uid: newUuid(),
+            direction: 'lent',
+            bookId: drift.Value(book.id),
+            personName: personName.trim(),
+            personUserId: drift.Value(personUserId),
+            dueAt: drift.Value(dueAt),
+          ),
+        );
+  }
+
+  /// Records a book I borrowed from someone without an account.
+  Future<int> borrowFromPerson({
+    required String personName,
+    int? personUserId,
+    required String title,
+    String? author,
+    DateTime? dueAt,
+  }) {
+    return db
+        .into(db.loans)
+        .insert(
+          LoansCompanion.insert(
+            uid: newUuid(),
+            direction: 'borrowed',
+            title: drift.Value(title.trim()),
+            author: drift.Value(author?.trim()),
+            personName: personName.trim(),
+            personUserId: drift.Value(personUserId),
+            dueAt: drift.Value(dueAt),
+          ),
+        );
+  }
+
+  /// Saves a request to borrow a book from a friend.
+  /// TODO: send it to the friend (notification) once friends are connected;
+  /// accepting it should then switch the friend's book to "lent".
+  Future<int> requestBorrow({
+    required String friendName,
+    int? friendUserId,
+    required String title,
+    String? author,
+  }) {
+    return db
+        .into(db.loans)
+        .insert(
+          LoansCompanion.insert(
+            uid: newUuid(),
+            direction: 'borrowed',
+            status: const drift.Value('requested'),
+            title: drift.Value(title.trim()),
+            author: drift.Value(author?.trim()),
+            personName: friendName.trim(),
+            personUserId: drift.Value(friendUserId),
+          ),
+        );
+  }
+
+  Future<void> returnLoan(int id) async {
+    await (db.update(db.loans)..where((l) => l.id.equals(id))).write(
+      LoansCompanion(
+        status: const drift.Value('returned'),
+        returnedAt: drift.Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> deleteLoan(int id) async {
+    await (db.delete(db.loans)..where((l) => l.id.equals(id))).go();
+  }
+
+  // -------------------------------------------------------------------
   // Recycle bin: books are hidden first, removed for good after 30 days.
   // -------------------------------------------------------------------
 

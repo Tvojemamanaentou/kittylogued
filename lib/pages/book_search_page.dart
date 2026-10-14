@@ -100,7 +100,7 @@ class _BookSearchPageState extends State<BookSearchPage> {
         width: 36,
         height: 52,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => placeholder,
+        errorBuilder: (_, _, _) => placeholder,
       ),
     );
   }
@@ -131,7 +131,7 @@ class _BookSearchPageState extends State<BookSearchPage> {
   Widget _buildGroupList() {
     return ListView.separated(
       itemCount: _groups.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
+      separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final group = _groups[index];
         final n = group.editions.length;
@@ -182,7 +182,7 @@ class _BookSearchPageState extends State<BookSearchPage> {
         Expanded(
           child: ListView.separated(
             itemCount: group.editions.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final e = group.editions[index];
               final headline = [

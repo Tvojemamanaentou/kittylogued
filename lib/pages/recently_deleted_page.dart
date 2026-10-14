@@ -80,7 +80,7 @@ class RecentlyDeletedPage extends StatelessWidget {
                     constraints: const BoxConstraints(maxWidth: 720),
                     child: ListView.separated(
                       itemCount: books.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final book = books[index];
                         final deleted = book.deletedAt ?? DateTime.now();

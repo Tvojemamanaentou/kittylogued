@@ -126,9 +126,8 @@ class BatchImportQueue extends ChangeNotifier {
   Timer? _saveTimer;
   final Set<BatchItem> _dirty = {};
 
-  BatchImportQueue({IsbnLookupService? lookup, BatchQueueStore? store})
-    : _lookup = lookup ?? IsbnLookupService(),
-      _store = store;
+  BatchImportQueue({IsbnLookupService? lookup, this._store})
+    : _lookup = lookup ?? IsbnLookupService();
 
   int get pendingCount =>
       items.where((i) => i.status == BatchLookupStatus.pending).length;

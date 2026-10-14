@@ -63,7 +63,7 @@ class _CoverViewerState extends State<_CoverViewer> {
       return Image.file(
         _file!,
         fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => _placeholder(),
+        errorBuilder: (_, _, _) => _placeholder(),
       );
     }
     final url = widget.coverUrl;
@@ -71,7 +71,7 @@ class _CoverViewerState extends State<_CoverViewer> {
       return Image.network(
         url,
         fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => _placeholder(),
+        errorBuilder: (_, _, _) => _placeholder(),
         loadingBuilder: (context, child, progress) => progress == null
             ? child
             : const Center(child: CircularProgressIndicator()),

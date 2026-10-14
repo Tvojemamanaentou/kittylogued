@@ -303,7 +303,7 @@ class _BookFormPageState extends State<BookFormPage>
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setLocal) => AlertDialog(
-          title: const Text('Add progress entry'),
+          title: const Text('Add milestone'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -593,7 +593,7 @@ class _BookFormPageState extends State<BookFormPage>
           const SizedBox(width: 8),
           Expanded(
             child: DropdownButtonFormField<String>(
-              value: _bindingType,
+              initialValue: _bindingType,
               decoration: _dec('Binding'),
               items: const [
                 DropdownMenuItem(
@@ -671,36 +671,60 @@ class _BookFormPageState extends State<BookFormPage>
     );
   }
 
+  Future<void> _pickProgressDate() async {
+    final picked = await _pickDate(_progressDate);
+    if (picked != null) {
+      setState(() {
+        _progressDate = picked;
+        _dirty = true;
+      });
+    }
+  }
+
   Widget _readingTab() {
     final sortedLogs = [..._logs]..sort((a, b) => b.date.compareTo(a.date));
+    final isToday = _progressDate == _today();
+    final datesSummary =
+        'Started ${_startedAt == null ? '-' : _fmt(_startedAt!)}  •  '
+        'Finished ${_finishedAt == null ? '-' : _fmt(_finishedAt!)}';
+
     return _tabScroll([
-      ListenableBuilder(
-        listenable: _pages,
-        builder: (context, _) => ReadingProgressField(
-          status: _readingStatus,
-          currentPage: _currentPage,
-          totalPages: int.tryParse(_pages.text.trim()),
-          onChanged: (status, page) => _onProgress(status, page),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: ListenableBuilder(
+            listenable: _pages,
+            builder: (context, _) => ReadingProgressField(
+              status: _readingStatus,
+              currentPage: _currentPage,
+              totalPages: int.tryParse(_pages.text.trim()),
+              onChanged: (status, page) => _onProgress(status, page),
+            ),
+          ),
+        ),
+      ),
+      Align(
+        alignment: Alignment.center,
+        child: TextButton.icon(
+          onPressed: _pickProgressDate,
+          icon: const Icon(Icons.calendar_today, size: 16),
+          label: Text(
+            isToday
+                ? 'Saved for today (tap to pick another day)'
+                : 'Saved for ${_fmt(_progressDate)} (tap to change)',
+          ),
         ),
       ),
       _sectionHeader(
-        Icons.history,
-        'Dates',
-        note: 'Pick an earlier day to record progress you made in the past.',
+        Icons.flag_outlined,
+        'Milestones',
+        note: 'Earlier points in your reading',
       ),
-      _dateTile(
-        'Progress date (for the next update)',
-        _progressDate,
-        (d) => _progressDate = d ?? _today(),
-      ),
-      _dateTile('Started on', _startedAt, (d) => _startedAt = d),
-      _dateTile('Finished on', _finishedAt, (d) => _finishedAt = d),
-      _sectionHeader(Icons.timeline, 'Progress history'),
       if (sortedLogs.isEmpty)
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 4),
           child: Text(
-            'No entries yet. Entries are added when you change the page and save.',
+            'No milestones yet. Pages you save show up here.',
             style: TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ),
@@ -713,7 +737,7 @@ class _BookFormPageState extends State<BookFormPage>
           subtitle: Text(_fmt(entry.date)),
           trailing: IconButton(
             icon: const Icon(Icons.delete_outline, size: 20),
-            tooltip: 'Remove entry',
+            tooltip: 'Remove milestone',
             onPressed: () => setState(() {
               _logs = _logs.where((l) => !identical(l, entry)).toList();
               _dirty = true;
@@ -726,8 +750,21 @@ class _BookFormPageState extends State<BookFormPage>
         child: OutlinedButton.icon(
           onPressed: _addPastEntry,
           icon: const Icon(Icons.add),
-          label: const Text('Add past entry'),
+          label: const Text('Add milestone'),
         ),
+      ),
+      const SizedBox(height: 8),
+      ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        title: const Text('Dates'),
+        subtitle: Text(
+          datesSummary,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        children: [
+          _dateTile('Started on', _startedAt, (d) => _startedAt = d),
+          _dateTile('Finished on', _finishedAt, (d) => _finishedAt = d),
+        ],
       ),
     ]);
   }
