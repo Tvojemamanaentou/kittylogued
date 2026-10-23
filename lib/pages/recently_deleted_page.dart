@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kittylogued/app_services.dart';
 import 'package:kittylogued/database/app_database.dart';
-import 'package:kittylogued/repository/library_repository.dart';
+import 'package:kittylogued/repositories/library_repository.dart';
 import 'package:kittylogued/widgets/book_cover_thumbnail.dart';
 
 /// The recycle bin: deleted books stay here for 30 days, then disappear.
@@ -95,9 +95,7 @@ class RecentlyDeletedPage extends StatelessWidget {
                             cacheService: services.coverCache,
                           ),
                           title: Text(book.title),
-                          subtitle: Text(
-                            '${book.author} • $left day(s) left',
-                          ),
+                          subtitle: Text('${book.author} • $left day(s) left'),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -109,7 +107,9 @@ class RecentlyDeletedPage extends StatelessWidget {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('Restored "${book.title}"'),
+                                        content: Text(
+                                          'Restored "${book.title}"',
+                                        ),
                                       ),
                                     );
                                   }

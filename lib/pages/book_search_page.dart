@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kittylogued/database/app_database.dart';
 import 'package:kittylogued/services/isbn_lookup_service.dart';
 import 'package:kittylogued/utils/text_normalizer.dart';
 
@@ -15,8 +16,9 @@ class _WorkGroup {
 /// edition you own. Pops with the chosen [BookLookupResult].
 class BookSearchPage extends StatefulWidget {
   final String? initialQuery;
+  final AppDatabase database;
 
-  const BookSearchPage({super.key, this.initialQuery});
+  const BookSearchPage({super.key, required this.database, this.initialQuery});
 
   @override
   State<BookSearchPage> createState() => _BookSearchPageState();
@@ -30,14 +32,37 @@ class _BookSearchPageState extends State<BookSearchPage> {
   _WorkGroup? _selectedGroup;
   bool _isLoading = false;
   bool _hasSearched = false;
+  List<Book> _libraryBooks = [];
 
   @override
   void initState() {
     super.initState();
+    _loadLibraryBooks();
     if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
       _queryController.text = widget.initialQuery!.trim();
       WidgetsBinding.instance.addPostFrameCallback((_) => _performSearch());
     }
+  }
+
+  Future<void> _loadLibraryBooks() async {
+    final books = await (widget.database.select(widget.database.books)
+          ..where((book) => book.deletedAt.isNull()))
+        .get();
+    if (mounted) setState(() => _libraryBooks = books);
+  }
+
+  bool _isInLibrary(BookLookupResult result) {
+    final isbn = result.isbn?.replaceAll(RegExp(r'[^0-9Xx]'), '').toUpperCase();
+    final title = normalizeText(result.title.trim());
+    final author = normalizeText(result.author.trim());
+    return _libraryBooks.any((book) {
+      final existingIsbn = book.isbn
+          ?.replaceAll(RegExp(r'[^0-9Xx]'), '')
+          .toUpperCase();
+      if (isbn != null && isbn.isNotEmpty && existingIsbn == isbn) return true;
+      return normalizeText(book.title.trim()) == title &&
+          normalizeText(book.author.trim()) == author;
+    });
   }
 
   @override
@@ -107,7 +132,14 @@ class _BookSearchPageState extends State<BookSearchPage> {
 
   String? _firstCover(_WorkGroup g) {
     for (final e in g.editions) {
-      if (e.coverUrl != null) return e.coverUrl;
+      final cover = e.coverUrl?.trim();
+      if (cover != null && cover.isNotEmpty) return cover;
+    }
+    for (final edition in g.editions) {
+      final isbn = edition.isbn?.replaceAll(RegExp(r'[^0-9Xx]'), '');
+      if (isbn != null && isbn.isNotEmpty) {
+        return 'https://covers.openlibrary.org/b/isbn/$isbn-M.jpg';
+      }
     }
     return null;
   }
@@ -141,8 +173,18 @@ class _BookSearchPageState extends State<BookSearchPage> {
             group.title,
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
-          subtitle: Text(
-            '${group.author} • ${n == 1 ? "1 edition" : "$n editions"}',
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${group.author} • ${n == 1 ? "1 edition" : "$n editions"}',
+              ),
+              if (group.editions.any(_isInLibrary))
+                const Text(
+                  'Already in your library — check before adding',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+            ],
           ),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => _onGroupTap(group),
@@ -196,7 +238,16 @@ class _BookSearchPageState extends State<BookSearchPage> {
               ].join(' • ');
               return ListTile(
                 leading: _cover(e.coverUrl),
-                title: Text(headline),
+                title: Row(
+                  children: [
+                    Expanded(child: Text(headline)),
+                    if (_isInLibrary(e))
+                      const Tooltip(
+                        message: 'Already in your library',
+                        child: Icon(Icons.library_add_check, size: 18),
+                      ),
+                  ],
+                ),
                 subtitle: details.isEmpty ? null : Text(details),
                 trailing: const Icon(Icons.check_circle_outline),
                 onTap: () => _pick(e),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kittylogued/database/app_database.dart';
-import 'package:kittylogued/repository/library_repository.dart';
+import 'package:kittylogued/repositories/library_repository.dart';
 import 'package:kittylogued/utils/reading_progress.dart';
 import 'package:kittylogued/widgets/reading_progress_bar.dart';
 import 'package:kittylogued/widgets/star_rating.dart';
@@ -42,9 +42,7 @@ class _QuickUpdateBodyState extends State<_QuickUpdateBody> {
   void initState() {
     super.initState();
     _rating = widget.book.ratingHalfStars;
-    _pageController = TextEditingController(
-      text: _page > 0 ? '$_page' : '',
-    );
+    _pageController = TextEditingController(text: _page > 0 ? '$_page' : '');
   }
 
   @override
@@ -113,7 +111,11 @@ class _QuickUpdateBodyState extends State<_QuickUpdateBody> {
             ),
             const SizedBox(height: 16),
             if (total != null) ...[
-              ReadingProgressBar(status: status, fraction: fraction, height: 10),
+              ReadingProgressBar(
+                status: status,
+                fraction: fraction,
+                height: 10,
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -133,11 +135,12 @@ class _QuickUpdateBodyState extends State<_QuickUpdateBody> {
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
-                      onChanged: (v) =>
-                          setState(() => _page = ReadingProgress.clampPage(
-                            int.tryParse(v.trim()) ?? 0,
-                            total,
-                          )),
+                      onChanged: (v) => setState(
+                        () => _page = ReadingProgress.clampPage(
+                          int.tryParse(v.trim()) ?? 0,
+                          total,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),

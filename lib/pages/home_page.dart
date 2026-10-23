@@ -91,9 +91,9 @@ class _HomePageState extends State<HomePage> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(
-              int.tryParse(controller.text.trim()) ?? 0,
-            ),
+            onPressed: () =>
+                Navigator.of(dialogContext)
+                    .pop(int.tryParse(controller.text.trim()) ?? 0),
             child: const Text('Save'),
           ),
         ],
@@ -129,6 +129,7 @@ class _HomePageState extends State<HomePage> {
                     insights: insights,
                     goal: _s.settings.yearlyGoal,
                     onEditGoal: _editGoal,
+                    compact: true,
                   ),
                 ],
               ),
@@ -163,6 +164,126 @@ class _HomePageState extends State<HomePage> {
     padding: EdgeInsets.all(24),
     child: Center(child: CircularProgressIndicator()),
   );
+
+  Future<void> _quickLog(Book book) async {
+    final initialPage = book.currentPage;
+    var selectedPage = initialPage;
+    final page = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setLocalState) {
+          return AlertDialog(
+            title: Text('Log pages for ${book.title}'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  book.pageCount == null
+                      ? 'Current page: $selectedPage'
+                      : 'Page $selectedPage of ${book.pageCount}',
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final increment in [1, 5, 25])
+                      ActionChip(
+                        label: Text('+$increment'),
+                        onPressed: () {
+                          final maxPage = book.pageCount ?? 1 << 30;
+                          setLocalState(() {
+                            selectedPage = (selectedPage + increment)
+                                .clamp(0, maxPage)
+                                .toInt();
+                          });
+                        },
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: selectedPage <= initialPage
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(selectedPage),
+                child: Text('Log ${selectedPage - initialPage} pages'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (page == null || !mounted) return;
+    try {
+      await _s.repository.quickUpdate(book, page: page);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Progress saved at page $page.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not save reading progress: $error'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _currentlyReading() {
+    return StreamBuilder<List<Book>>(
+      stream: _s.database.watchLiveBooks(),
+      builder: (context, snapshot) {
+        final books = (snapshot.data ?? const <Book>[])
+            .where((book) => book.readingStatus == 'reading')
+            .toList();
+        if (books.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Currently reading',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  for (final book in books)
+                    ListTile(
+                      key: ValueKey('currently-reading-${book.id}'),
+                      leading: const Icon(Icons.auto_stories_outlined),
+                      title: Text(
+                        book.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        book.pageCount == null
+                            ? 'Page ${book.currentPage}'
+                            : 'Page ${book.currentPage} of ${book.pageCount}',
+                      ),
+                      trailing: FilledButton.tonal(
+                        onPressed: () => _quickLog(book),
+                        child: const Text('+ Pages'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   Widget _cover(SuggestedBook book) {
     final placeholder = Container(
@@ -316,6 +437,8 @@ class _HomePageState extends State<HomePage> {
           padding: const EdgeInsets.all(16),
           children: [
             _buildInsights(),
+            const SizedBox(height: 16),
+            _currentlyReading(),
             const SizedBox(height: 20),
             FutureBuilder<List<SuggestionSection>>(
               future: _suggestions,

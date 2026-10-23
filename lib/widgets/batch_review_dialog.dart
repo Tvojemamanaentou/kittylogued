@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kittylogued/database/app_database.dart';
 import 'package:kittylogued/models/book_draft.dart';
-import 'package:kittylogued/repository/library_repository.dart';
+import 'package:kittylogued/repositories/library_repository.dart';
 import 'package:kittylogued/services/batch_import_queue.dart';
 import 'package:kittylogued/services/cover_cache_service.dart';
 import 'package:kittylogued/widgets/tag_editor.dart';

@@ -19,6 +19,7 @@ class ReadingInsights {
   final int finishedThisYear;
   final int currentStreak;
   final int longestStreak;
+  final int pagesThisWeek;
 
   const ReadingInsights({
     required this.months,
@@ -26,6 +27,7 @@ class ReadingInsights {
     required this.finishedThisYear,
     required this.currentStreak,
     required this.longestStreak,
+    required this.pagesThisWeek,
   });
 
   static ReadingInsights compute(
@@ -66,25 +68,54 @@ class ReadingInsights {
       }
     }
 
-    // Pages gained between consecutive entries of the same book.
+    // Compare the last page reached on each date. A reduced page count replaces
+    // that day's net progress instead of leaving an obsolete streak day behind.
     final byBook = <int, List<ReadingLog>>{};
     for (final l in logs) {
       if (!liveIds.contains(l.bookId)) continue;
       (byBook[l.bookId] ??= <ReadingLog>[]).add(l);
-      days.add(DateTime(l.loggedOn.year, l.loggedOn.month, l.loggedOn.day));
     }
+    final dailyPageChanges = <DateTime, int>{};
     for (final entries in byBook.values) {
-      entries.sort((a, b) {
-        final c = a.loggedOn.compareTo(b.loggedOn);
-        return c != 0 ? c : a.page.compareTo(b.page);
-      });
+      final pageByDay = <DateTime, int>{};
+      for (final entry in entries) {
+        final date = DateTime(
+          entry.loggedOn.year,
+          entry.loggedOn.month,
+          entry.loggedOn.day,
+        );
+        final current = pageByDay[date];
+        if (current == null || entry.page > current) {
+          pageByDay[date] = entry.page;
+        }
+      }
+      final sortedDays = pageByDay.keys.toList()..sort();
       var previous = 0;
-      for (final e in entries) {
-        if (e.page <= previous) continue;
-        bucketFor(e.loggedOn)?.pages += e.page - previous;
-        previous = e.page;
+      for (final date in sortedDays) {
+        final page = pageByDay[date]!;
+        final change = page - previous;
+        dailyPageChanges.update(
+          date,
+          (total) => total + change,
+          ifAbsent: () => change,
+        );
+        if (change > 0) bucketFor(date)?.pages += change;
+        previous = page;
       }
     }
+    for (final entry in dailyPageChanges.entries) {
+      if (entry.value > 0) days.add(entry.key);
+    }
+    final today = DateTime(now.year, now.month, now.day);
+    final weekStart = DateTime(today.year, today.month, today.day - 6);
+    final pagesThisWeek = dailyPageChanges.entries
+        .where(
+          (entry) =>
+              !entry.key.isBefore(weekStart) &&
+              !entry.key.isAfter(today) &&
+              entry.value > 0,
+        )
+        .fold<int>(0, (total, entry) => total + entry.value);
 
     // Streaks of consecutive days with any reading activity.
     var current = 0;
@@ -115,6 +146,7 @@ class ReadingInsights {
       finishedThisYear: finishedThisYear,
       currentStreak: current,
       longestStreak: longest,
+      pagesThisWeek: pagesThisWeek,
     );
   }
 }

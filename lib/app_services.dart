@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kittylogued/database/app_database.dart';
-import 'package:kittylogued/repository/library_repository.dart';
+import 'package:kittylogued/repositories/library_repository.dart';
 import 'package:kittylogued/services/app_settings.dart';
 import 'package:kittylogued/services/auth_service.dart';
 import 'package:kittylogued/services/backup_service.dart';

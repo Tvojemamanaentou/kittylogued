@@ -61,11 +61,24 @@ class _MainShellState extends State<MainShell> {
     if (count == 0) return;
     _announced = true;
     _queue.removeListener(_announceSavedBatch);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+    ScaffoldMessenger.of(context).showMaterialBanner(
+      MaterialBanner(
         content: Text('$count scanned book(s) are waiting for review'),
-        duration: const Duration(seconds: 8),
-        action: SnackBarAction(label: 'Review', onPressed: _reviewBatch),
+        leading: const Icon(Icons.library_add_check_outlined),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              _reviewBatch();
+            },
+            child: const Text('Review queued books'),
+          ),
+          TextButton(
+            onPressed: () =>
+                ScaffoldMessenger.of(context).hideCurrentMaterialBanner(),
+            child: const Text('Dismiss'),
+          ),
+        ],
       ),
     );
   }
@@ -148,7 +161,7 @@ class _MainShellState extends State<MainShell> {
     _closeMenu();
     final result = await Navigator.of(context).push<BookLookupResult>(
       MaterialPageRoute<BookLookupResult>(
-        builder: (_) => const BookSearchPage(),
+        builder: (_) => BookSearchPage(database: _s.database),
       ),
     );
     if (result != null && mounted) _openAddDialog(initialResult: result);
@@ -207,6 +220,13 @@ class _MainShellState extends State<MainShell> {
                     ),
                   ),
                 ),
+              ],
+            ),
+            floatingActionButtonLocation:
+                FloatingActionButtonLocation.centerDocked,
+            floatingActionButton: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 AddBookBubbles(
                   isOpen: _menuOpen,
                   onScan: _startScan,
@@ -215,13 +235,11 @@ class _MainShellState extends State<MainShell> {
                   batchMode: _batchMode,
                   onBatchChanged: (v) => setState(() => _batchMode = v),
                 ),
+                AddBookFab(
+                  isOpen: _menuOpen,
+                  onPressed: _toggleMenu,
+                ),
               ],
-            ),
-            floatingActionButtonLocation:
-                FloatingActionButtonLocation.centerDocked,
-            floatingActionButton: AddBookFab(
-              isOpen: _menuOpen,
-              onPressed: _toggleMenu,
             ),
             bottomNavigationBar: AppBottomBar(
               selectedIndex: _index,

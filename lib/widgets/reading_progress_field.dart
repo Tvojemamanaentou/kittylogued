@@ -199,7 +199,7 @@ class _ReadingProgressFieldState extends State<ReadingProgressField> {
                   child: const Text('Start over'),
                 ),
                 const SizedBox(width: 4),
-                FilledButton.tonalIcon(
+                OutlinedButton.icon(
                   onPressed: widget.status == 'read' ? null : _markFinished,
                   icon: const Icon(Icons.check, size: 18),
                   label: const Text('Mark finished'),

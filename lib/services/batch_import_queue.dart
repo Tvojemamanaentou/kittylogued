@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:kittylogued/models/book_draft.dart';
-import 'package:kittylogued/repository/library_repository.dart';
+import 'package:kittylogued/repositories/library_repository.dart';
 import 'package:kittylogued/services/batch_queue_store.dart';
 import 'package:kittylogued/services/cover_cache_service.dart';
 import 'package:kittylogued/services/isbn_lookup_service.dart';
@@ -202,9 +202,8 @@ class BatchImportQueue extends ChangeNotifier {
 
   Future<bool> _hasInternet() async {
     try {
-      final result = await InternetAddress.lookup(
-        'openlibrary.org',
-      ).timeout(const Duration(seconds: 3));
+      final result = await InternetAddress.lookup('openlibrary.org')
+          .timeout(const Duration(seconds: 3));
       return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
     } catch (_) {
       return false;
@@ -267,6 +266,11 @@ class BatchImportQueue extends ChangeNotifier {
 
     for (final item in items.where((i) => i.include && i.isValid).toList()) {
       final isbn = clean(item.isbn);
+      if (isbn != null && await repository.findByIsbn(isbn) != null) {
+        items.remove(item);
+        await _store?.remove(item.uid);
+        continue;
+      }
       if (isbn != null && item.coverUrl != null && item.coverUrl!.isNotEmpty) {
         await coverCache.downloadAndCacheCover(
           rawIsbn: isbn,

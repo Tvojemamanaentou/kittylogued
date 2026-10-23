@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
-/// The big round plus button that sits in the notch of the bottom bar.
-/// Rotates into an "x" while the menu is open.
+/// The main catalogue action. Its tooltip provides a full label on desktop hover.
 class AddBookFab extends StatelessWidget {
+  const AddBookFab({super.key, required this.isOpen, required this.onPressed});
+
   final bool isOpen;
   final VoidCallback onPressed;
-
-  const AddBookFab({super.key, required this.isOpen, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
     return FloatingActionButton.large(
+      key: const ValueKey('add-book-fab'),
       heroTag: 'add_book_fab',
       shape: const CircleBorder(),
-      tooltip: 'Add new book',
+      tooltip: isOpen ? 'Close add-book menu' : 'Add new book',
       onPressed: onPressed,
       child: AnimatedRotation(
         turns: isOpen ? 0.125 : 0,
@@ -24,16 +24,11 @@ class AddBookFab extends StatelessWidget {
   }
 }
 
-/// The three small bubbles that fan out above the plus button:
-/// barcode scanning, ISBN lookup and title/author search.
+/// Actions displayed directly above the FAB. The parent places this widget and
+/// [AddBookFab] in one docked column, so banners move the whole speed dial as a
+/// single unit rather than pushing the trigger into independently positioned
+/// bubbles.
 class AddBookBubbles extends StatelessWidget {
-  final bool isOpen;
-  final VoidCallback onScan;
-  final VoidCallback onIsbn;
-  final VoidCallback onSearch;
-  final bool batchMode;
-  final ValueChanged<bool> onBatchChanged;
-
   const AddBookBubbles({
     super.key,
     required this.isOpen,
@@ -44,44 +39,27 @@ class AddBookBubbles extends StatelessWidget {
     required this.onBatchChanged,
   });
 
-  Widget _bubble(
-    BuildContext context, {
-    required double dx,
-    required double bottom,
-    required String tooltip,
-    required Widget child,
-    required VoidCallback onTap,
+  final bool isOpen;
+  final VoidCallback onScan;
+  final VoidCallback onIsbn;
+  final VoidCallback onSearch;
+  final bool batchMode;
+  final ValueChanged<bool> onBatchChanged;
+
+  Widget _action({
+    required String keyName,
+    required String label,
+    required IconData icon,
+    required VoidCallback onPressed,
   }) {
-    final scheme = Theme.of(context).colorScheme;
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: bottom,
-      child: Center(
-        child: Transform.translate(
-          offset: Offset(dx, 0),
-          child: AnimatedScale(
-            scale: isOpen ? 1 : 0,
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOutBack,
-            child: Tooltip(
-              message: tooltip,
-              child: Material(
-                color: scheme.secondaryContainer,
-                elevation: 4,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: onTap,
-                  child: SizedBox(
-                    width: 60,
-                    height: 60,
-                    child: Center(child: child),
-                  ),
-                ),
-              ),
-            ),
-          ),
+    return Expanded(
+      child: FilledButton.tonalIcon(
+        key: ValueKey(keyName),
+        onPressed: onPressed,
+        icon: Icon(icon, size: 20),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         ),
       ),
     );
@@ -89,84 +67,69 @@ class AddBookBubbles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onColor = Theme.of(context).colorScheme.onSecondaryContainer;
-    return IgnorePointer(
-      ignoring: !isOpen,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 216,
-            child: Center(
-              child: AnimatedScale(
-                scale: isOpen ? 1 : 0,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutBack,
-                child: Material(
-                  color: Theme.of(context).colorScheme.secondaryContainer,
-                  elevation: 4,
-                  shape: const StadiumBorder(),
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 14, right: 6),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+    final colors = Theme.of(context).colorScheme;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      child: isOpen
+          ? SizedBox(
+              width: (MediaQuery.sizeOf(context).width - 24).clamp(0.0, 340.0),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Material(
+                      elevation: 4,
+                      color: colors.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(24),
+                      child: SwitchListTile(
+                        key: const ValueKey('batch-mode-toggle'),
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                        ),
+                        secondary: const Icon(Icons.library_add_check_outlined),
+                        title: const Text('Batch scan'),
+                        subtitle: Text(
+                          batchMode
+                              ? 'Several books per session'
+                              : 'One book at a time',
+                        ),
+                        value: batchMode,
+                        onChanged: onBatchChanged,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
                       children: [
-                        Icon(
-                          Icons.library_add_check_outlined,
-                          size: 18,
-                          color: onColor,
+                        _action(
+                          keyName: 'scan-book-action',
+                          label: 'Scan',
+                          icon: Icons.qr_code_scanner,
+                          onPressed: onScan,
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          'Batch',
-                          style: TextStyle(
-                            color: onColor,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        _action(
+                          keyName: 'isbn-book-action',
+                          label: 'ISBN',
+                          icon: Icons.numbers,
+                          onPressed: onIsbn,
                         ),
-                        const SizedBox(width: 4),
-                        Switch(value: batchMode, onChanged: onBatchChanged),
+                        const SizedBox(width: 6),
+                        _action(
+                          keyName: 'search-book-action',
+                          label: 'Title / author',
+                          icon: Icons.menu_book,
+                          onPressed: onSearch,
+                        ),
                       ],
                     ),
-                  ),
+                  ],
                 ),
               ),
-            ),
-          ),
-          _bubble(
-            context,
-            dx: -92,
-            bottom: 76,
-            tooltip: 'Scan barcode',
-            onTap: onScan,
-            child: Icon(Icons.qr_code_scanner, color: onColor, size: 28),
-          ),
-          _bubble(
-            context,
-            dx: 0,
-            bottom: 140,
-            tooltip: 'ISBN lookup',
-            onTap: onIsbn,
-            child: Text(
-              'ISBN',
-              style: TextStyle(
-                color: onColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ),
-          _bubble(
-            context,
-            dx: 92,
-            bottom: 76,
-            tooltip: 'Search by title / author',
-            onTap: onSearch,
-            child: Icon(Icons.menu_book, color: onColor, size: 28),
-          ),
-        ],
-      ),
+            )
+          : const SizedBox.shrink(key: ValueKey('add-book-menu-closed')),
     );
   }
 }

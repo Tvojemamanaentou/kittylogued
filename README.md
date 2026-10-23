@@ -93,9 +93,10 @@ lib/
   auth/                   sign-in "brains": one stub per provider (email, Google, Facebook, Microsoft)
   database/               drift schema (app_database.dart) and file helpers (db_files.dart)
   models/                 BookDraft, TagDraft, ReadingLogDraft (what forms edit)
-  repository/             LibraryRepository: add, update, delete, restore, quick actions
+  repositories/           LibraryRepository and UserRepository: persistence boundaries
   services/               settings, auth, backups, ISBN lookup, lookup cache, batch queue,
-                          saved views, cover cache, suggestions, friends activity
+                          saved views, cover cache, suggestions, friends activity, API auth
+  api/                    API client, exceptions, and request/response DTOs
   pages/                  screens (home, catalogue, book form, search, batch, profile, ...)
   widgets/                reusable pieces (stars, tag editor, progress bar, charts, ...)
   theme/                  colour palettes and theme builder

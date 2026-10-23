@@ -1,4 +1,4 @@
-﻿import 'package:drift/drift.dart';
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:kittylogued/database/db_files.dart';
 import 'package:kittylogued/models/book_draft.dart';
@@ -181,6 +181,7 @@ const int kSchemaVersion = 7;
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
+  AppDatabase.forTesting(super.e);
 
   @override
   int get schemaVersion => kSchemaVersion;

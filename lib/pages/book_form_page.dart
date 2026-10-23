@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kittylogued/database/app_database.dart';
 import 'package:kittylogued/models/book_draft.dart';
 import 'package:kittylogued/pages/book_search_page.dart';
-import 'package:kittylogued/repository/library_repository.dart';
+import 'package:kittylogued/repositories/library_repository.dart';
 import 'package:kittylogued/services/cover_cache_service.dart';
 import 'package:kittylogued/services/isbn_lookup_service.dart';
 import 'package:kittylogued/utils/reading_progress.dart';
@@ -81,16 +81,18 @@ class _BookFormPageState extends State<BookFormPage>
   bool get _isEdit => widget.book != null;
   bool _isLookingUp = false;
   bool _dirty = false;
+  bool _suppressDirty = false;
 
   String? _coverUrl;
   String _bindingType = 'paperback';
 
   String _readingStatus = 'unread';
   int _currentPage = 0;
-  int _initialPage = 0;
   DateTime? _startedAt;
   DateTime? _finishedAt;
   DateTime _progressDate = _today();
+  bool _progressChanged = false;
+  bool _progressDateChanged = false;
   List<ReadingLogDraft> _logs = [];
 
   int? _rating;
@@ -142,7 +144,6 @@ class _BookFormPageState extends State<BookFormPage>
       _bindingType = book.bindingType ?? 'paperback';
       _readingStatus = book.readingStatus;
       _currentPage = book.currentPage;
-      _initialPage = book.currentPage;
       _startedAt = book.startedAt;
       _finishedAt = book.finishedAt;
       _rating = book.ratingHalfStars;
@@ -154,18 +155,25 @@ class _BookFormPageState extends State<BookFormPage>
       });
     }
 
+    if (widget.initialIsbn != null && widget.initialIsbn!.isNotEmpty) {
+      _isbn.text = widget.initialIsbn!;
+    }
+
     // Start tracking changes only after the fields were filled in.
     for (final c in _controllers) {
       c.addListener(_markDirty);
     }
 
     if (widget.initialIsbn != null && widget.initialIsbn!.isNotEmpty) {
-      _isbn.text = widget.initialIsbn!;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _lookupIsbn());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _lookupIsbn(initialLookup: true),
+      );
     }
     if (widget.initialResult != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _applyLookupResult(widget.initialResult!);
+        if (mounted) {
+          _applyLookupResult(widget.initialResult!, markDirty: false);
+        }
       });
     }
   }
@@ -180,14 +188,17 @@ class _BookFormPageState extends State<BookFormPage>
   }
 
   void _markDirty() {
-    if (!_dirty && mounted) setState(() => _dirty = true);
+    if (!_suppressDirty && !_dirty && mounted) {
+      setState(() => _dirty = true);
+    }
   }
 
   // ---------------------------------------------------------------------
   // Lookup
   // ---------------------------------------------------------------------
 
-  void _applyLookupResult(BookLookupResult result) {
+  void _applyLookupResult(BookLookupResult result, {bool markDirty = true}) {
+    _suppressDirty = true;
     setState(() {
       _title.text = result.title;
       _author.text = result.author;
@@ -207,9 +218,11 @@ class _BookFormPageState extends State<BookFormPage>
         _synopsis.text = result.synopsis!;
       }
     });
+    _suppressDirty = false;
+    if (markDirty) _markDirty();
   }
 
-  Future<void> _lookupIsbn() async {
+  Future<void> _lookupIsbn({bool initialLookup = false}) async {
     final raw = _isbn.text.trim();
     if (raw.isEmpty) return;
 
@@ -220,11 +233,13 @@ class _BookFormPageState extends State<BookFormPage>
 
     final messenger = ScaffoldMessenger.of(context);
     if (result != null) {
-      _applyLookupResult(result);
+      _applyLookupResult(result, markDirty: !initialLookup);
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            _isEdit ? 'Updated metadata for: ${result.title}' : 'Found: ${result.title}',
+            _isEdit
+                ? 'Updated metadata for: ${result.title}'
+                : 'Found: ${result.title}',
           ),
         ),
       );
@@ -254,14 +269,15 @@ class _BookFormPageState extends State<BookFormPage>
 
     final selected = await Navigator.of(context).push<BookLookupResult>(
       MaterialPageRoute<BookLookupResult>(
-        builder: (_) => BookSearchPage(initialQuery: query),
+        builder: (_) =>
+            BookSearchPage(database: widget.database, initialQuery: query),
       ),
     );
     if (selected != null && mounted) {
       _applyLookupResult(selected);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Populated: ${selected.title}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Populated: ${selected.title}')));
     }
   }
 
@@ -273,6 +289,9 @@ class _BookFormPageState extends State<BookFormPage>
     setState(() {
       _readingStatus = status;
       _currentPage = page;
+      if (on != null) {
+        _progressDate = DateTime(on.year, on.month, on.day);
+      }
       final dates = ReadingProgress.datesFor(
         status: status,
         startedAt: _startedAt,
@@ -281,9 +300,13 @@ class _BookFormPageState extends State<BookFormPage>
       );
       _startedAt = dates.startedAt;
       _finishedAt = dates.finishedAt;
+      _progressChanged = true;
       _dirty = true;
     });
   }
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   Future<DateTime?> _pickDate(DateTime? initial) {
     return showDatePicker(
@@ -351,7 +374,10 @@ class _BookFormPageState extends State<BookFormPage>
 
     if (entry == null || !mounted) return;
     setState(() {
-      _logs = [..._logs, entry];
+      _logs = [
+        ..._logs.where((log) => !_isSameDay(log.date, entry.date)),
+        entry,
+      ];
       _dirty = true;
     });
     // A newer, further entry also moves the current progress.
@@ -389,10 +415,13 @@ class _BookFormPageState extends State<BookFormPage>
     final page = ReadingProgress.clampPage(_currentPage, pages);
 
     // Progress that was typed in becomes a dated entry, unless one for that
-    // page already exists.
+    // date already exists. Replacing the date's entry is important when a page
+    // correction subtracts progress; retaining the previous larger page would
+    // keep that date incorrectly counted as a streak day.
     final logs = [..._logs];
-    if (page > 0 && page != _initialPage && !logs.any((l) => l.page == page)) {
-      logs.add(ReadingLogDraft(_progressDate, page));
+    if (_progressChanged || _progressDateChanged) {
+      logs.removeWhere((log) => _isSameDay(log.date, _progressDate));
+      if (page > 0) logs.add(ReadingLogDraft(_progressDate, page));
     }
 
     final isbn = _n(_isbn);
@@ -427,6 +456,44 @@ class _BookFormPageState extends State<BookFormPage>
       tags: _tags,
     );
 
+    if (!_isEdit && isbn != null) {
+      final existing = await widget.repository.findByIsbn(isbn);
+      if (!mounted) return;
+      if (existing != null) {
+        final openExisting = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Already in your library'),
+            content: Text(
+              '"${existing.title}" is already saved. Open it to update '
+              'reading progress or edit its details instead?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Keep editing'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Open existing book'),
+              ),
+            ],
+          ),
+        );
+        if (openExisting == true && mounted) {
+          await openBookForm(
+            context,
+            database: widget.database,
+            repository: widget.repository,
+            coverCacheService: widget.coverCacheService,
+            book: existing,
+          );
+          if (mounted) Navigator.of(context).pop();
+        }
+        return;
+      }
+    }
+
     if (_isEdit) {
       await widget.repository.updateBook(widget.book!.id, draft);
     } else {
@@ -437,24 +504,35 @@ class _BookFormPageState extends State<BookFormPage>
   }
 
   Future<void> _confirmDiscard() async {
-    final leave = await showDialog<bool>(
+    final action = await showDialog<int>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Discard changes?'),
-        content: const Text('Your changes to this book have not been saved.'),
+        title: const Text('You have unsaved changes'),
+        content: const Text(
+          'Save your book, keep editing, or discard the changes you made.',
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
+            onPressed: () => Navigator.of(dialogContext).pop(0),
             child: const Text('Keep editing'),
           ),
+          OutlinedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(1),
+            child: const Text('Discard changes'),
+          ),
           FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Discard'),
+            onPressed: () => Navigator.of(dialogContext).pop(2),
+            child: const Text('Save changes'),
           ),
         ],
       ),
     );
-    if (leave == true && mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    if (action == 1) {
+      Navigator.of(context).pop();
+    } else if (action == 2) {
+      await _save();
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -584,10 +662,37 @@ class _BookFormPageState extends State<BookFormPage>
         children: [
           SizedBox(
             width: 110,
-            child: TextFormField(
-              controller: _pages,
-              keyboardType: TextInputType.number,
-              decoration: _dec('Pages'),
+            child: ListenableBuilder(
+              listenable: _pages,
+              builder: (context, _) {
+                final missing = _pages.text.trim().isEmpty;
+                final amber = Theme.of(context).colorScheme.tertiary;
+                return TextFormField(
+                  controller: _pages,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Pages',
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: missing ? amber : Colors.grey,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: missing ? amber : Colors.grey,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: missing
+                            ? amber
+                            : Theme.of(context).colorScheme.primary,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
           const SizedBox(width: 8),
@@ -616,6 +721,21 @@ class _BookFormPageState extends State<BookFormPage>
             ),
           ),
         ],
+      ),
+      ListenableBuilder(
+        listenable: _pages,
+        builder: (context, _) => _pages.text.trim().isEmpty
+            ? Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Missing from catalogue — enter the page count if known.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.tertiary,
+                    fontSize: 12,
+                  ),
+                ),
+              )
+            : const SizedBox.shrink(),
       ),
       const SizedBox(height: 12),
       TextFormField(
@@ -676,6 +796,7 @@ class _BookFormPageState extends State<BookFormPage>
     if (picked != null) {
       setState(() {
         _progressDate = picked;
+        _progressDateChanged = true;
         _dirty = true;
       });
     }
@@ -692,26 +813,56 @@ class _BookFormPageState extends State<BookFormPage>
       Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: ListenableBuilder(
-            listenable: _pages,
-            builder: (context, _) => ReadingProgressField(
-              status: _readingStatus,
-              currentPage: _currentPage,
-              totalPages: int.tryParse(_pages.text.trim()),
-              onChanged: (status, page) => _onProgress(status, page),
-            ),
-          ),
-        ),
-      ),
-      Align(
-        alignment: Alignment.center,
-        child: TextButton.icon(
-          onPressed: _pickProgressDate,
-          icon: const Icon(Icons.calendar_today, size: 16),
-          label: Text(
-            isToday
-                ? 'Saved for today (tap to pick another day)'
-                : 'Saved for ${_fmt(_progressDate)} (tap to change)',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ListenableBuilder(
+                listenable: _pages,
+                builder: (context, _) => ReadingProgressField(
+                  status: _readingStatus,
+                  currentPage: _currentPage,
+                  totalPages: int.tryParse(_pages.text.trim()),
+                  onChanged: (status, page) => _onProgress(status, page),
+                ),
+              ),
+              const Divider(height: 24),
+              Align(
+                alignment: Alignment.center,
+                child: TextButton.icon(
+                  onPressed: _pickProgressDate,
+                  icon: const Icon(Icons.calendar_today, size: 16),
+                  label: Text(
+                    isToday
+                        ? 'Reading date: Today'
+                        : 'Reading date: ${_fmt(_progressDate)}',
+                  ),
+                ),
+              ),
+              if (sortedLogs.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Recent reading',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                for (final entry in sortedLogs.take(3))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '${_fmt(entry.date)}: page ${entry.page}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+              ],
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Log progress and save'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -846,12 +997,6 @@ class _BookFormPageState extends State<BookFormPage>
               tooltip: 'Search online',
               onPressed: _openOnlineSearch,
             ),
-            TextButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.check),
-              label: const Text('Save'),
-            ),
-            const SizedBox(width: 4),
           ],
           bottom: TabBar(
             controller: _tabController,
@@ -867,6 +1012,17 @@ class _BookFormPageState extends State<BookFormPage>
           child: TabBarView(
             controller: _tabController,
             children: [_bookTab(), _readingTab(), _notesTab()],
+          ),
+        ),
+        bottomNavigationBar: SafeArea(
+          minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: FilledButton.icon(
+            onPressed: _save,
+            icon: const Icon(Icons.save_outlined),
+            label: Text(_isEdit ? 'Save changes' : 'Save book'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+            ),
           ),
         ),
       ),

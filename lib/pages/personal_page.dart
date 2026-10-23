@@ -8,6 +8,8 @@ import 'package:kittylogued/pages/settings_page.dart';
 import 'package:kittylogued/pages/sign_in_page.dart';
 import 'package:kittylogued/services/app_settings.dart';
 import 'package:kittylogued/utils/library_stats.dart';
+import 'package:kittylogued/utils/reading_insights.dart';
+import 'package:kittylogued/widgets/reading_insights_section.dart';
 
 class PersonalPage extends StatelessWidget {
   const PersonalPage({super.key});
@@ -48,68 +50,115 @@ class PersonalPage extends StatelessWidget {
     );
   }
 
+  Future<void> _editGoal(BuildContext context, AppSettings settings) async {
+    final controller = TextEditingController(
+      text: settings.yearlyGoal > 0 ? '${settings.yearlyGoal}' : '',
+    );
+    final value = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Yearly reading goal'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Books to finish this year',
+            helperText: 'Leave empty or 0 for no goal',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(
+              int.tryParse(controller.text.trim()) ?? 0,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value != null) await settings.setYearlyGoal(value);
+  }
+
+  /// Editing a username is intentionally split into a small, explicit flow so the
+  /// validation and availability checks remain easy to follow and safe to modify.
   Future<void> _editUsername(BuildContext context, AppSettings settings) async {
     final controller = TextEditingController(text: settings.username ?? '');
-    String? error;
-    bool checking = false;
 
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setLocal) {
-          Future<void> save() async {
-            final value = controller.text.trim();
-            final local = AppSettings.validateUsername(value);
-            if (local != null) {
-              setLocal(() => error = local);
-              return;
-            }
-            final check = settings.usernameAvailabilityCheck;
-            if (check != null) {
-              setLocal(() {
-                checking = true;
-                error = null;
-              });
-              final remote = await check(value);
-              if (remote != null) {
-                setLocal(() {
-                  checking = false;
-                  error = remote;
-                });
+      builder: (dialogContext) {
+        String? error;
+        bool checking = false;
+
+        return StatefulBuilder(
+          builder: (stateContext, setLocalState) {
+            Future<void> handleSave() async {
+              final value = controller.text.trim();
+              final localError = AppSettings.validateUsername(value);
+              if (localError != null) {
+                setLocalState(() => error = localError);
                 return;
               }
-            }
-            await settings.setUsername(value);
-            if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-          }
 
-          return AlertDialog(
-            title: const Text('Username'),
-            content: TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: 'Username',
-                helperText: 'Uniqueness will be checked online later.',
-                border: const OutlineInputBorder(),
-                errorText: error,
+              final check = settings.usernameAvailabilityCheck;
+              if (check != null) {
+                setLocalState(() {
+                  checking = true;
+                  error = null;
+                });
+
+                final remoteError = await check(value);
+                setLocalState(() {
+                  checking = false;
+                  error = remoteError;
+                });
+                if (remoteError != null) {
+                  return;
+                }
+              }
+
+              await settings.setUsername(value);
+              if (dialogContext.mounted) {
+                Navigator.of(dialogContext).pop();
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Username'),
+              content: TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Username',
+                  helperText: 'Uniqueness will be checked online later.',
+                  border: const OutlineInputBorder(),
+                  errorText: error,
+                ),
+                onSubmitted: (_) => handleSave(),
               ),
-              onSubmitted: (_) => save(),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: checking ? null : save,
-                child: const Text('Save'),
-              ),
-            ],
-          );
-        },
-      ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: checking ? null : handleSave,
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
+
     controller.dispose();
   }
 
@@ -281,6 +330,35 @@ class PersonalPage extends StatelessWidget {
                     DateTime.now(),
                   );
                   return _StatsSection(stats: stats);
+                },
+              );
+            },
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Reading insights',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 10),
+          StreamBuilder<List<Book>>(
+            stream: s.database.watchLiveBooks(),
+            builder: (context, booksSnapshot) {
+              return StreamBuilder<List<ReadingLog>>(
+                stream: s.database.watchAllReadingLogs(),
+                builder: (context, logsSnapshot) {
+                  final insights = ReadingInsights.compute(
+                    booksSnapshot.data ?? const <Book>[],
+                    logsSnapshot.data ?? const <ReadingLog>[],
+                    DateTime.now(),
+                  );
+                  return ListenableBuilder(
+                    listenable: s.settings,
+                    builder: (context, _) => ReadingInsightsSection(
+                      insights: insights,
+                      goal: s.settings.yearlyGoal,
+                      onEditGoal: () => _editGoal(context, s.settings),
+                    ),
+                  );
                 },
               );
             },

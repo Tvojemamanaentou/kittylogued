@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kittylogued/database/app_database.dart';
 import 'package:kittylogued/models/book_draft.dart';
-import 'package:kittylogued/repository/library_repository.dart';
+import 'package:kittylogued/repositories/library_repository.dart';
 import 'package:kittylogued/services/batch_import_queue.dart';
 import 'package:kittylogued/services/cover_cache_service.dart';
 import 'package:kittylogued/widgets/tag_editor.dart';
@@ -43,11 +43,11 @@ class _BatchReviewPageState extends State<BatchReviewPage> {
     super.dispose();
   }
 
-  /// Flags books whose ISBN is already in the library (still selected).
+  /// Marks existing ISBNs and excludes them from the batch import by default.
   Future<void> _markExisting() async {
-    final existing = await (widget.database.select(widget.database.books)
-          ..where((b) => b.deletedAt.isNull()))
-        .get();
+    final existing = await (widget.database.select(
+      widget.database.books,
+    )..where((b) => b.deletedAt.isNull())).get();
     final isbns = existing
         .map((b) => BatchImportQueue.clean(b.isbn ?? ''))
         .where((s) => s.isNotEmpty)
@@ -55,7 +55,10 @@ class _BatchReviewPageState extends State<BatchReviewPage> {
     if (!mounted) return;
     setState(() {
       for (final item in widget.queue.items) {
-        if (isbns.contains(item.isbn)) item.inLibrary = true;
+        if (isbns.contains(item.isbn)) {
+          item.inLibrary = true;
+          item.include = false;
+        }
       }
     });
   }
@@ -77,7 +80,9 @@ class _BatchReviewPageState extends State<BatchReviewPage> {
       listenable: widget.queue,
       builder: (context, _) {
         final items = widget.queue.items;
-        final selected = items.where((i) => i.include).toList();
+        final selected = items
+            .where((i) => i.include && !i.inLibrary)
+            .toList();
         final invalid = selected.where((i) => !i.isValid).length;
         final pending = widget.queue.pendingCount;
         final canSave =
@@ -292,7 +297,9 @@ class _BatchItemCardState extends State<_BatchItemCard> {
             ),
             const SizedBox(width: 6),
             Text(
-              item.waitingForNetwork ? 'Waiting for connection…' : 'Looking up…',
+              item.waitingForNetwork
+                  ? 'Waiting for connection…'
+                  : 'Looking up…',
               style: const TextStyle(fontSize: 12),
             ),
           ],
@@ -331,7 +338,9 @@ class _BatchItemCardState extends State<_BatchItemCard> {
           children: [
             Checkbox(
               value: item.include,
-              onChanged: (v) {
+              onChanged: item.inLibrary
+                  ? null
+                  : (v) {
                 item.include = v ?? false;
                 widget.onChanged();
                 setState(() {});
@@ -365,8 +374,11 @@ class _BatchItemCardState extends State<_BatchItemCard> {
                       if (item.inLibrary) ...[
                         const SizedBox(width: 10),
                         const Text(
-                          'Already in library',
-                          style: TextStyle(fontSize: 12, color: Colors.redAccent),
+                          'Already in library — skipped',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.redAccent,
+                          ),
                         ),
                       ],
                     ],
@@ -388,9 +400,9 @@ class _BatchItemCardState extends State<_BatchItemCard> {
                     controller: _author,
                     decoration: _dec('Author'),
                     onChanged: (v) {
-                            item.author = v;
-                            widget.onChanged();
-                          },
+                      item.author = v;
+                      widget.onChanged();
+                    },
                   ),
                   const SizedBox(height: 8),
                   Row(

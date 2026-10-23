@@ -107,7 +107,14 @@ class _BookSearchDialogState extends State<BookSearchDialog> {
 
   String? _firstCover(_WorkGroup g) {
     for (final e in g.editions) {
-      if (e.coverUrl != null) return e.coverUrl;
+      final cover = e.coverUrl?.trim();
+      if (cover != null && cover.isNotEmpty) return cover;
+    }
+    for (final edition in g.editions) {
+      final isbn = edition.isbn?.replaceAll(RegExp(r'[^0-9Xx]'), '');
+      if (isbn != null && isbn.isNotEmpty) {
+        return 'https://covers.openlibrary.org/b/isbn/$isbn-M.jpg';
+      }
     }
     return null;
   }

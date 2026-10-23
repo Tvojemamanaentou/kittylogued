@@ -7,12 +7,14 @@ class ReadingInsightsSection extends StatelessWidget {
   final ReadingInsights insights;
   final int goal;
   final VoidCallback onEditGoal;
+  final bool compact;
 
   const ReadingInsightsSection({
     super.key,
     required this.insights,
     required this.goal,
     required this.onEditGoal,
+    this.compact = false,
   });
 
   static const _monthLetters = [
@@ -119,23 +121,39 @@ class ReadingInsightsSection extends StatelessWidget {
                 ),
               ],
             ),
-            _title(context, 'Books finished per month'),
-            MiniBarChart(
-              values: [for (final m in months) m.books.toDouble()],
-              labels: labels,
-            ),
-            _title(context, 'Pages read per month'),
-            MiniBarChart(
-              values: [for (final m in months) m.pages.toDouble()],
-              labels: labels,
-              color: Colors.teal,
-            ),
-            _title(context, 'Your ratings (stars)'),
-            MiniBarChart(
-              values: [for (final c in insights.ratingHistogram) c.toDouble()],
-              labels: ratingLabels,
-              color: Colors.amber,
-            ),
+            if (compact) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(Icons.auto_stories_outlined, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Pages read this week: ${insights.pagesThisWeek}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ] else ...[
+              _title(context, 'Books finished per month'),
+              MiniBarChart(
+                values: [for (final m in months) m.books.toDouble()],
+                labels: labels,
+              ),
+              _title(context, 'Pages read per month'),
+              MiniBarChart(
+                values: [for (final m in months) m.pages.toDouble()],
+                labels: labels,
+                color: Colors.teal,
+              ),
+              _title(context, 'Your ratings (stars)'),
+              MiniBarChart(
+                values: [
+                  for (final c in insights.ratingHistogram) c.toDouble(),
+                ],
+                labels: ratingLabels,
+                color: Colors.amber,
+              ),
+            ],
           ],
         ),
       ),

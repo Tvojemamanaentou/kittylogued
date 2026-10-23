@@ -15,69 +15,97 @@ class LibraryRepository {
 
   /// Adds a book to the main account's library. Returns its row id.
   Future<int> addBook(BookDraft d) async {
-    final me = await db.ensureMeUser();
-    final id = await db
-        .into(db.books)
-        .insert(
-          BooksCompanion.insert(
-            title: d.title,
-            author: d.author,
-            internalId: drift.Value(BookIdentifier.generate(title: d.title)),
-            uid: drift.Value(newUuid()),
-            ownerId: drift.Value(me.id),
-            updatedAt: drift.Value(DateTime.now()),
-            isbn: drift.Value(d.isbn),
-            publisher: drift.Value(d.publisher),
-            publicationYear: drift.Value(d.publicationYear),
-            pageCount: drift.Value(d.pageCount),
-            bindingType: drift.Value(d.bindingType),
-            secondaryContributors: drift.Value(d.secondaryContributors),
-            coverUrl: drift.Value(d.coverUrl),
-            synopsis: drift.Value(d.synopsis),
-            shelfLocation: drift.Value(d.shelfLocation),
-            signatura: drift.Value(d.signatura),
-            readingStatus: drift.Value(d.readingStatus),
-            currentPage: drift.Value(d.currentPage),
-            startedAt: drift.Value(d.startedAt),
-            finishedAt: drift.Value(d.finishedAt),
-            ratingHalfStars: drift.Value(d.ratingHalfStars),
-            reviewText: drift.Value(d.reviewText),
-            privateNotes: drift.Value(d.privateNotes),
-          ),
-        );
-    await db.setBookTags(id, d.tags);
-    await db.setReadingLogs(id, d.logs);
-    return id;
+    return db.transaction(() async {
+      final me = await db.ensureMeUser();
+      final id = await db
+          .into(db.books)
+          .insert(
+            BooksCompanion.insert(
+              title: d.title,
+              author: d.author,
+              internalId: drift.Value(BookIdentifier.generate(title: d.title)),
+              uid: drift.Value(newUuid()),
+              ownerId: drift.Value(me.id),
+              updatedAt: drift.Value(DateTime.now()),
+              isbn: drift.Value(d.isbn),
+              publisher: drift.Value(d.publisher),
+              publicationYear: drift.Value(d.publicationYear),
+              pageCount: drift.Value(d.pageCount),
+              bindingType: drift.Value(d.bindingType),
+              secondaryContributors: drift.Value(d.secondaryContributors),
+              coverUrl: drift.Value(d.coverUrl),
+              synopsis: drift.Value(d.synopsis),
+              shelfLocation: drift.Value(d.shelfLocation),
+              signatura: drift.Value(d.signatura),
+              readingStatus: drift.Value(d.readingStatus),
+              currentPage: drift.Value(d.currentPage),
+              startedAt: drift.Value(d.startedAt),
+              finishedAt: drift.Value(d.finishedAt),
+              ratingHalfStars: drift.Value(d.ratingHalfStars),
+              reviewText: drift.Value(d.reviewText),
+              privateNotes: drift.Value(d.privateNotes),
+            ),
+          );
+
+      // A book and its editable metadata form one logical record. If tag or log
+      // persistence fails, roll the book row back instead of leaving partial data.
+      await db.setBookTags(id, d.tags);
+      await db.setReadingLogs(id, d.logs);
+      return id;
+    });
   }
 
   /// Updates an existing book. Its internal id and uid never change.
   Future<void> updateBook(int id, BookDraft d) async {
-    await (db.update(db.books)..where((t) => t.id.equals(id))).write(
-      BooksCompanion(
-        title: drift.Value(d.title),
-        author: drift.Value(d.author),
-        updatedAt: drift.Value(DateTime.now()),
-        isbn: drift.Value(d.isbn),
-        publisher: drift.Value(d.publisher),
-        publicationYear: drift.Value(d.publicationYear),
-        pageCount: drift.Value(d.pageCount),
-        bindingType: drift.Value(d.bindingType),
-        secondaryContributors: drift.Value(d.secondaryContributors),
-        coverUrl: drift.Value(d.coverUrl),
-        synopsis: drift.Value(d.synopsis),
-        shelfLocation: drift.Value(d.shelfLocation),
-        signatura: drift.Value(d.signatura),
-        readingStatus: drift.Value(d.readingStatus),
-        currentPage: drift.Value(d.currentPage),
-        startedAt: drift.Value(d.startedAt),
-        finishedAt: drift.Value(d.finishedAt),
-        ratingHalfStars: drift.Value(d.ratingHalfStars),
-        reviewText: drift.Value(d.reviewText),
-        privateNotes: drift.Value(d.privateNotes),
-      ),
-    );
-    await db.setBookTags(id, d.tags);
-    await db.setReadingLogs(id, d.logs);
+    await db.transaction(() async {
+      final updatedRows =
+          await (db.update(db.books)..where((t) => t.id.equals(id))).write(
+            BooksCompanion(
+              title: drift.Value(d.title),
+              author: drift.Value(d.author),
+              updatedAt: drift.Value(DateTime.now()),
+              isbn: drift.Value(d.isbn),
+              publisher: drift.Value(d.publisher),
+              publicationYear: drift.Value(d.publicationYear),
+              pageCount: drift.Value(d.pageCount),
+              bindingType: drift.Value(d.bindingType),
+              secondaryContributors: drift.Value(d.secondaryContributors),
+              coverUrl: drift.Value(d.coverUrl),
+              synopsis: drift.Value(d.synopsis),
+              shelfLocation: drift.Value(d.shelfLocation),
+              signatura: drift.Value(d.signatura),
+              readingStatus: drift.Value(d.readingStatus),
+              currentPage: drift.Value(d.currentPage),
+              startedAt: drift.Value(d.startedAt),
+              finishedAt: drift.Value(d.finishedAt),
+              ratingHalfStars: drift.Value(d.ratingHalfStars),
+              reviewText: drift.Value(d.reviewText),
+              privateNotes: drift.Value(d.privateNotes),
+            ),
+          );
+      if (updatedRows == 0) {
+        throw StateError('Cannot update book $id because it no longer exists.');
+      }
+
+      await db.setBookTags(id, d.tags);
+      await db.setReadingLogs(id, d.logs);
+    });
+  }
+
+  /// Finds a live book by its normalized ISBN, ignoring punctuation.
+  Future<Book?> findByIsbn(String isbn) async {
+    final normalized = isbn.replaceAll(RegExp(r'[^0-9Xx]'), '').toUpperCase();
+    if (normalized.isEmpty) return null;
+    final books = await (db.select(db.books)
+          ..where((book) => book.deletedAt.isNull()))
+        .get();
+    for (final book in books) {
+      final candidate = (book.isbn ?? '')
+          .replaceAll(RegExp(r'[^0-9Xx]'), '')
+          .toUpperCase();
+      if (candidate == normalized) return book;
+    }
+    return null;
   }
 
   // -------------------------------------------------------------------
@@ -176,10 +204,7 @@ class LibraryRepository {
   Future<void> softDelete(int id) async {
     final now = DateTime.now();
     await (db.update(db.books)..where((t) => t.id.equals(id))).write(
-      BooksCompanion(
-        deletedAt: drift.Value(now),
-        updatedAt: drift.Value(now),
-      ),
+      BooksCompanion(deletedAt: drift.Value(now), updatedAt: drift.Value(now)),
     );
   }
 
@@ -208,9 +233,9 @@ class LibraryRepository {
   /// Removes books that have been in the bin longer than [binKeepTime].
   Future<void> purgeExpired() async {
     final cutoff = DateTime.now().subtract(binKeepTime);
-    await (db.delete(db.books)
-          ..where((t) => t.deletedAt.isSmallerThanValue(cutoff)))
-        .go();
+    await (db.delete(
+      db.books,
+    )..where((t) => t.deletedAt.isSmallerThanValue(cutoff))).go();
     await db.removeUnusedTags();
   }
 
